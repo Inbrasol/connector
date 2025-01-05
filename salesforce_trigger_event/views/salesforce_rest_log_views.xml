@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+    <record id="view_salesforce_rest_log_tree" model="ir.ui.view">
+        <field name="name">salesforce.rest.log.tree</field>
+        <field name="model">salesforce.rest.log</field>
+        <field name="arch" type="xml">
+            <tree string="Salesforce REST Log">
+                <field name="name"/>
+                <field name="date"/>
+                <field name="response_status"/>
+                <field name="error_message"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_salesforce_rest_log_form" model="ir.ui.view">
+        <field name="name">salesforce.rest.log.form</field>
+        <field name="model">salesforce.rest.log</field>
+        <field name="arch" type="xml">
+            <form string="Salesforce REST Log">
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="date"/>
+                        <field name="response_status"/>
+                        <field name="error_message"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_salesforce_rest_log" model="ir.actions.act_window">
+        <field name="name">Salesforce REST Logs</field>
+        <field name="res_model">salesforce.rest.log</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+    <menuitem id="menu_salesforce_rest_log" name="Salesforce REST Logs" 
+    parent="base.menu_custom" action="action_salesforce_rest_log" sequence="100"/>
+</odoo>

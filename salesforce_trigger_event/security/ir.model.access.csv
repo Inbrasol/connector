@@ -1,0 +1,5 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_salesforce_backend_admin,salesforce.backend admin,model_salesforce_backend,base.group_system,1,1,1,1
+access_salesforce_res_config_admin,salesforce.rest.config admin,model_salesforce_rest_config,base.group_system,1,1,1,1
+access_salesforce_rest_fields_admin,salesforce.rest.fields admin,model_salesforce_rest_fields,base.group_system,1,1,1,1
+access_salesforce_rest_log_admin,salesforce.rest.log admin,model_salesforce_rest_log,base.group_system,1,1,1,1

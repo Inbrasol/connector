@@ -1,9 +1,9 @@
 
-[![Runboat](https://img.shields.io/badge/runboat-Try%20me-875A7B.png)](https://runboat.odoo-community.org/builds?repo=OCA/connector&target_branch=14.0)
-[![Pre-commit Status](https://github.com/OCA/connector/actions/workflows/pre-commit.yml/badge.svg?branch=14.0)](https://github.com/OCA/connector/actions/workflows/pre-commit.yml?query=branch%3A14.0)
-[![Build Status](https://github.com/OCA/connector/actions/workflows/test.yml/badge.svg?branch=14.0)](https://github.com/OCA/connector/actions/workflows/test.yml?query=branch%3A14.0)
-[![codecov](https://codecov.io/gh/OCA/connector/branch/14.0/graph/badge.svg)](https://codecov.io/gh/OCA/connector)
-[![Translation Status](https://translation.odoo-community.org/widgets/connector-14-0/-/svg-badge.svg)](https://translation.odoo-community.org/engage/connector-14-0/?utm_source=widget)
+[![Runboat](https://img.shields.io/badge/runboat-Try%20me-875A7B.png)](https://runboat.odoo-community.org/builds?repo=OCA/connector&target_branch=17.0)
+[![Pre-commit Status](https://github.com/OCA/connector/actions/workflows/pre-commit.yml/badge.svg?branch=17.0)](https://github.com/OCA/connector/actions/workflows/pre-commit.yml?query=branch%3A17.0)
+[![Build Status](https://github.com/OCA/connector/actions/workflows/test.yml/badge.svg?branch=17.0)](https://github.com/OCA/connector/actions/workflows/test.yml?query=branch%3A17.0)
+[![codecov](https://codecov.io/gh/OCA/connector/branch/17.0/graph/badge.svg)](https://codecov.io/gh/OCA/connector)
+[![Translation Status](https://translation.odoo-community.org/widgets/connector-17-0/-/svg-badge.svg)](https://translation.odoo-community.org/engage/connector-17-0/?utm_source=widget)
 
 <!-- /!\ do not modify above this line -->
 
@@ -21,12 +21,12 @@ Available addons
 ----------------
 addon | version | maintainers | summary
 --- | --- | --- | ---
-[component](component/) | 14.0.1.1.2 | [![guewen](https://github.com/guewen.png?size=30px)](https://github.com/guewen) | Add capabilities to register and use decoupled components, as an alternative to model classes
-[component_event](component_event/) | 14.0.1.0.3 |  | Components Events
-[connector](connector/) | 14.0.1.1.4 |  | Connector
-[connector_base_product](connector_base_product/) | 14.0.1.0.0 |  | Connector Base Product
-[test_component](test_component/) | 14.0.1.0.0 | [![guewen](https://github.com/guewen.png?size=30px)](https://github.com/guewen) | Automated tests for Components, do not install.
-[test_connector](test_connector/) | 14.0.1.0.0 |  | Automated tests for Connector, do not install.
+[component](component/) | 17.0.1.0.0 | [![guewen](https://github.com/guewen.png?size=30px)](https://github.com/guewen) | Add capabilities to register and use decoupled components, as an alternative to model classes
+[component_event](component_event/) | 17.0.1.0.0 |  | Components Events
+[connector](connector/) | 17.0.1.0.1 |  | Connector
+[connector_base_product](connector_base_product/) | 17.0.1.0.0 |  | Connector Base Product
+[test_component](test_component/) | 17.0.1.0.0 | [![guewen](https://github.com/guewen.png?size=30px)](https://github.com/guewen) | Automated tests for Components, do not install.
+[test_connector](test_connector/) | 17.0.1.0.0 |  | Automated tests for Connector, do not install.
 
 [//]: # (end addons)
 

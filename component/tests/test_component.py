@@ -22,8 +22,14 @@ class TestComponent(TransactionComponentRegistryCase):
 
     def setUp(self):
         super().setUp()
-        self.collection = self.env["collection.base"]
+        self._setup_registry(self)
+        self._setUpComponents()
 
+    def tearDown(self):
+        self._teardown_registry(self)
+        super().tearDown()
+
+    def _setUpComponents(self):
         # create some Component to play with
         class Component1(Component):
             _name = "component1"
@@ -155,6 +161,7 @@ class TestComponent(TransactionComponentRegistryCase):
 
     def test_component_error_several(self):
         """Use component(usage=...) when more than one generic component match"""
+
         # we create 1 new Component with _usage 'for.test', in the same
         # collection and no _apply_on, and we remove the _apply_on of component
         # 1 so they are generic components for a collection
@@ -182,6 +189,7 @@ class TestComponent(TransactionComponentRegistryCase):
 
     def test_component_error_several_same_model(self):
         """Use component(usage=...) when more than one component match a model"""
+
         # we create a new Component with _usage 'for.test', in the same
         # collection and no _apply_on
         class Component3(Component):
@@ -202,6 +210,7 @@ class TestComponent(TransactionComponentRegistryCase):
     def test_component_specific_model(self):
         """Use component(usage=...) when more than one component match but
         only one for the specific model"""
+
         # we create a new Component with _usage 'for.test', in the same
         # collection and no _apply_on. This is a generic component for the
         # collection
@@ -228,6 +237,7 @@ class TestComponent(TransactionComponentRegistryCase):
     def test_component_specific_collection(self):
         """Use component(usage=...) when more than one component match but
         only one for the specific collection"""
+
         # we create a new Component with _usage 'for.test', without collection
         # and no _apply_on
         class Component3(Component):
@@ -251,6 +261,7 @@ class TestComponent(TransactionComponentRegistryCase):
     def test_component_specific_collection_specific_model(self):
         """Use component(usage=...) when more than one component match but
         only one for the specific model and collection"""
+
         # we create a new Component with _usage 'for.test', without collection
         # and no _apply_on. This is a component generic for all collections and
         # models

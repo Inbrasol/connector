@@ -62,7 +62,7 @@ class Binder(AbstractComponent):
         bindings.ensure_one()
         if unwrap:
             bindings = bindings[self._odoo_field]
-        bindings = bindings.with_context(context)
+        bindings = bindings.with_context(**context)
         return bindings
 
     def to_external(self, binding, wrap=False):
@@ -99,11 +99,8 @@ class Binder(AbstractComponent):
         :type binding: int
         """
         # Prevent False, None, or "", but not 0
-        assert (
-            external_id or external_id == 0
-        ) and binding, "external_id or binding missing, " "got: %s, %s" % (
-            external_id,
-            binding,
+        assert (external_id or external_id == 0) and binding, (
+            "external_id or binding missing, " f"got: {external_id}, {binding}"
         )
         # avoid to trigger the export when we modify the `external_id`
         now_fmt = fields.Datetime.now()
@@ -142,9 +139,9 @@ class Binder(AbstractComponent):
         """
         try:
             column = self.model._fields[self._odoo_field]
-        except KeyError:
+        except KeyError as err:
             raise ValueError(
-                "Cannot unwrap model %s, because it has no %s fields"
-                % (self.model._name, self._odoo_field)
-            )
+                f"Cannot unwrap model {self.model._name}, because it has no "
+                f"{self._odoo_field} fields"
+            ) from err
         return column.comodel_name

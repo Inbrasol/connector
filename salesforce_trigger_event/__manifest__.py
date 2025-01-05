@@ -1,0 +1,20 @@
+{
+    'name': 'Salesforce Trigger Event',
+    'version': '17.0.0.1',
+    'summary': 'Module to handle Salesforce trigger events',
+    'description': 'This module integrates Salesforce trigger events with Odoo.',
+    'author': 'Inbrasol',
+    'website': 'http://www.inbrasol.pe',
+    'category': 'Sales',
+    'depends': ['base', 'crm','component_event','sale','account','salesforce_fields'],
+    'data': [
+        'security/ir.model.access.csv',
+        'views/salesforce_backend_views.xml',
+        'views/salesforce_rest_config_views.xml',
+        'views/salesforce_rest_log_views.xml',
+    ],
+    'installable': True,
+    'application': False,
+    'auto_install': False,
+    'license': 'LGPL-3',
+}

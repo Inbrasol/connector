@@ -23,7 +23,7 @@ from collections import OrderedDict, defaultdict
 from odoo import models
 from odoo.tools import LastOrderedSet, OrderedSet
 
-from .exception import NoComponentError, SeveralComponentError
+from .exception import NoComponentError, RegistryNotReadyError, SeveralComponentError
 
 _logger = logging.getLogger(__name__)
 
@@ -252,14 +252,17 @@ class WorkContext:
             dbname = self.env.cr.dbname
             try:
                 self.components_registry = _component_databases[dbname]
-            except KeyError:
-                _logger.error(
+            except KeyError as exc:
+                msg = (
                     "No component registry for database %s. "
                     "Probably because the Odoo registry has not been built "
-                    "yet.",
+                    "yet."
+                )
+                _logger.error(
+                    msg,
                     dbname,
                 )
-                raise
+                raise RegistryNotReadyError(msg) from exc
         self._propagate_kwargs = ["collection", "model_name", "components_registry"]
         for attr_name, value in kwargs.items():
             setattr(self, attr_name, value)
@@ -321,8 +324,9 @@ class WorkContext:
             and self.collection._name != component_class._collection
         ):
             raise NoComponentError(
-                "Component with name '%s' can't be used for collection '%s'."
-                % (name, self.collection._name)
+                "Component with name '{}' can't be used for collection '{}'.".format(
+                    name, self.collection._name
+                )
             )
 
         if (
@@ -330,14 +334,15 @@ class WorkContext:
             and work_model not in component_class.apply_on_models
         ):
             if len(component_class.apply_on_models) == 1:
-                hint_models = "'{}'".format(component_class.apply_on_models[0])
+                hint_models = f"'{component_class.apply_on_models[0]}'"
             else:
-                hint_models = "<one of {!r}>".format(component_class.apply_on_models)
+                hint_models = f"<one of {component_class.apply_on_models!r}>"
             raise NoComponentError(
-                "Component with name '%s' can't be used for model '%s'.\n"
+                "Component with name '{}' can't be used for model '{}'.\n"
                 "Hint: you might want to use: "
-                "component_by_name('%s', model_name=%s)"
-                % (name, work_model, name, hint_models)
+                "component_by_name('{}', model_name={})".format(
+                    name, work_model, name, hint_models
+                )
             )
 
         if work_model == self.model_name:
@@ -426,9 +431,8 @@ class WorkContext:
         )
         if not component_classes:
             raise NoComponentError(
-                "No component found for collection '%s', "
-                "usage '%s', model_name '%s'."
-                % (self.collection._name, usage, model_name)
+                f"No component found for collection '{self.collection._name}', "
+                f"usage '{usage}', model_name '{model_name}'."
             )
         elif len(component_classes) > 1:
             # If we have more than one component, try to find the one
@@ -441,9 +445,8 @@ class WorkContext:
             )
         if len(component_classes) != 1:
             raise SeveralComponentError(
-                "Several components found for collection '%s', "
-                "usage '%s', model_name '%s'. Found: %r"
-                % (
+                "Several components found for collection '{}', "
+                "usage '{}', model_name '{}'. Found: {}".format(
                     self.collection._name,
                     usage or "",
                     model_name or "",
@@ -470,7 +473,7 @@ class WorkContext:
         return [comp(work_context) for comp in component_classes]
 
     def __str__(self):
-        return "WorkContext({}, {})".format(self.model_name, repr(self.collection))
+        return f"WorkContext({self.model_name}, {repr(self.collection)})"
 
     __repr__ = __str__
 
@@ -828,9 +831,9 @@ class AbstractComponent(metaclass=MetaComponent):
 
         if cls._name in registry and not parents:
             raise TypeError(
-                "Component %r (in class %r) already exists. "
+                f"Component {cls._name} (in class {cls}) already exists. "
                 "Consider using _inherit instead of _name "
-                "or using a different _name." % (cls._name, cls)
+                "or using a different _name."
             )
 
         # determine the component's name
@@ -868,8 +871,7 @@ class AbstractComponent(metaclass=MetaComponent):
         for parent in parents:
             if parent not in registry:
                 raise TypeError(
-                    "Component %r inherits from non-existing component %r."
-                    % (name, parent)
+                    f"Component {name} inherits from non-existing component {parent}."
                 )
             parent_class = registry[parent]
             if parent == name:

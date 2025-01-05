@@ -1,12 +1,10 @@
 # Copyright 2017 Camptocamp SA
 # License LGPL-3.0 or later (http://www.gnu.org/licenses/lgpl.html)
 
-import sys
-import unittest
+from unittest import mock
 
-import mock
-
-from odoo.tests.common import tagged
+from odoo.tests.case import TestCase
+from odoo.tests.common import MetaCase, tagged
 
 from odoo.addons.component.core import Component
 from odoo.addons.component.tests.common import (
@@ -18,34 +16,12 @@ from odoo.addons.component_event.core import EventWorkContext
 
 
 @tagged("standard", "at_install")
-class TestEventWorkContext(unittest.TestCase):
+class TestEventWorkContext(TestCase, MetaCase("DummyCase", (), {})):
     """Test Events Components"""
 
-    if sys.version_info < (3, 8):
-        # Copy/paste from
-        # https://github.com/odoo/odoo/blob/0218d870d319af4f263d5e9aa324990f7cc90139/
-        # odoo/tests/common.py#L248-L268
-        # Partial backport of bpo-24412, merged in CPython 3.8
-        _class_cleanups = []
-
-        @classmethod
-        def addClassCleanup(cls, function, *args, **kwargs):
-            """Same as addCleanup, except the cleanup items are called even if
-            setUpClass fails (unlike tearDownClass). Backport of bpo-24412."""
-            cls._class_cleanups.append((function, args, kwargs))
-
-        @classmethod
-        def doClassCleanups(cls):
-            """Execute all class cleanup functions.
-            Normally called for you after tearDownClass.
-            Backport of bpo-24412."""
-            cls.tearDown_exceptions = []
-            while cls._class_cleanups:
-                function, args, kwargs = cls._class_cleanups.pop()
-                try:
-                    function(*args, **kwargs)
-                except Exception:
-                    cls.tearDown_exceptions.append(sys.exc_info())
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.test_sequence = 0
 
     def setUp(self):
         super().setUp()
@@ -161,8 +137,8 @@ class TestEvent(ComponentRegistryCase):
     """Test Events Components"""
 
     def setUp(self):
-        super(TestEvent, self).setUp()
-        ComponentRegistryCase._setup_registry(self)
+        super().setUp()
+        self._setup_registry(self)
         self._load_module_components("component_event")
 
         # get the collecter to notify the event
@@ -391,7 +367,8 @@ class TestEventFromModel(TransactionComponentRegistryCase):
     """Test Events Components from Models"""
 
     def setUp(self):
-        super(TestEventFromModel, self).setUp()
+        super().setUp()
+        self._setup_registry(self)
         self._load_module_components("component_event")
 
     def test_event_from_model(self):

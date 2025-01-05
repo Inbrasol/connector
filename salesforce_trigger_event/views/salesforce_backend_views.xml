@@ -1,0 +1,53 @@
+<odoo>
+    <record id="view_salesforce_backend_form" model="ir.ui.view">
+        <field name="name">salesforce.backend.form</field>
+        <field name="model">salesforce.backend</field>
+        <field name="arch" type="xml">
+            <form string="Salesforce Backend">
+                <header>
+                    <button name="authenticate" string="Authenticate" type="object" class="btn-primary"/>
+                </header>
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="client_id"/>
+                        <field name="client_secret"/>
+                        <field name="username"/>
+                        <field name="password"/>
+                        <field name="security_token"/>
+                        <field name="sandbox"/>
+                        <field name="api_version"/>
+                        <field name="url"/>
+                        <field name="active"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_salesforce_backend_tree" model="ir.ui.view">
+        <field name="name">salesforce.backend.tree</field>
+        <field name="model">salesforce.backend</field>
+        <field name="arch" type="xml">
+            <tree string="Salesforce Backend">
+                <field name="name"/>
+                <field name="client_id"/>
+                <field name="client_secret"/>
+                <field name="username"/>
+                <field name="password"/>
+                <field name="security_token"/>
+                <field name="sandbox"/>
+                <field name="api_version"/>
+                <field name="active"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="action_salesforce_backend" model="ir.actions.act_window">
+        <field name="name">Salesforce Backend</field>
+        <field name="res_model">salesforce.backend</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+    <menuitem id="menu_salesforce_backend" name="Salesforce Backend" parent="base.menu_custom" action="action_salesforce_backend" sequence="100"/>
+</odoo>

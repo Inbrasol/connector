@@ -1,7 +1,7 @@
 # Copyright 2017 Camptocamp SA
 # License LGPL-3.0 or later (http://www.gnu.org/licenses/lgpl.html)
 
-import mock
+from unittest import mock
 
 from odoo.tools import frozendict
 
@@ -14,6 +14,10 @@ from odoo.addons.connector import components
 
 class TestEventListener(TransactionComponentRegistryCase):
     """Test Connecter Listener"""
+
+    def setUp(self):
+        super().setUp()
+        self._setup_registry(self)
 
     def test_skip_if_no_connector_export(self):
         class MyEventListener(Component):
