@@ -15,7 +15,7 @@ class ResPartner(models.Model):
     @api.model
     def create(self, vals):
         partner = super(ResPartner, self).create(vals)
-        self._event('on_record_create').notify(partner, fields=vals.keys())
+        self._event('on_res_partner_create').notify(partner, fields=vals.keys())
         return partner
     
     @api.multi
@@ -25,7 +25,7 @@ class ResPartner(models.Model):
         for field, value in vals.items():
             if partner[field] != value:
                 changed_fields.append(field)
-        self._event('res_partner_update').notify(partner, changed_fields)
+        self._event('on_res_partner_update').notify(partner, changed_fields)
         return partner
     
     @api.multi
@@ -33,7 +33,7 @@ class ResPartner(models.Model):
         partner_ids = self.ids
         partner = super(ResPartner, self).unlink()
         for partner_id in partner_ids:
-            self._event('res_partner_delete').notify(partner_id)
+            self._event('on_res_partner_delete').notify(partner_id)
         return partner
 
 
@@ -103,10 +103,10 @@ class SalesforcePartnerListener(Component):
 
 
     @skip_if(lambda self, record, fields: not record or not fields)
-    def on_crm_lead_create(self, record, fields=None):
+    def on_res_partner_create(self, record, fields=None):
         print("Fields")
         print(fields)
-        rest_request = self.env['salesforce.rest.config'].build_rest_request_create(record,fields,'crm_lead_create')
+        rest_request = self.env['salesforce.rest.config'].build_rest_request_create(record,fields,'res_partner_create')
         if rest_request:
             rest_response = self.env['salesforce.rest.config'].post(rest_request['url'],rest_request['headers'],rest_request['fields'])
             print("Response")
@@ -118,10 +118,10 @@ class SalesforcePartnerListener(Component):
 
 
     @skip_if(lambda self, record, fields: not record or not fields)
-    def on_crm_lead_update(self, record, fields=None):
+    def on_res_partner_update(self, record, fields=None):
         print("Fields")
         print(fields)
-        rest_request = self.env['salesforce.rest.config'].build_rest_request_update(record,fields,'crm_lead_update')
+        rest_request = self.env['salesforce.rest.config'].build_rest_request_update(record,fields,'res_partner_update')
         if rest_request:
             rest_response = self.env['salesforce.rest.config'].patch(rest_request['url'],rest_request['headers'],rest_request['fields'])
             print("Response")
@@ -131,10 +131,10 @@ class SalesforcePartnerListener(Component):
 
 
     @skip_if(lambda self: not self)
-    def on_crm_lead_unlink(self,record_id):
+    def on_res_partner_delete(self,record_id):
         print("record_id")
         print(record_id)
-        rest_request = self.env['salesforce.rest.config'].build_rest_request_delete(record_id,'crm_lead_delete')
+        rest_request = self.env['salesforce.rest.config'].build_rest_request_delete(record_id,'res_partner_delete')
         if rest_request:
             rest_response = self.env['salesforce.rest.config'].delete(rest_request['url'],rest_request['headers'])
             print("Response")
