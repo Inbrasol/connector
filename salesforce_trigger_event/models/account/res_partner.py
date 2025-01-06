@@ -18,7 +18,7 @@ class ResPartner(models.Model):
         self._event('on_res_partner_create').notify(partner, fields=vals.keys())
         return partner
     
-    @api.multi
+    @api.model
     def write(self, vals):
         partner = super(ResPartner, self).write(vals)
         changed_fields = []
@@ -28,7 +28,7 @@ class ResPartner(models.Model):
         self._event('on_res_partner_update').notify(partner, changed_fields)
         return partner
     
-    @api.multi
+    @api.model
     def unlink(self):
         partner_ids = self.ids
         partner = super(ResPartner, self).unlink()
