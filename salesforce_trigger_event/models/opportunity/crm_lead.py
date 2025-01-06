@@ -24,13 +24,12 @@ class CrmLead(models.Model):
     @api.model
     def write(self, vals):
         changed_fields = []
-        for lead in self:
-            for field, value in vals.items():
-                if lead[field] != value:
-                    changed_fields.append(field)
+        for field, value in vals.items():
+            if self[field] != value:
+                changed_fields.append(field)
         res = super(CrmLead, self).write(vals)
-        for lead in self:
-            self._event('on_crm_lead_update').notify(lead, changed_fields)
+        if len(changed_fields) > 0:
+            self._event('on_crm_lead_update').notify(self, changed_fields)
 
         return res
     
