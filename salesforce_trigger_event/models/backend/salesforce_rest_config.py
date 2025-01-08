@@ -98,7 +98,8 @@ class SalesforceRestConfig(models.Model):
             return {
                 "url": url,
                 "headers": headers,
-                'fields': fields
+                'fields': fields,
+                'method': salesforce_config.method
             }
         
     def build_rest_request_update(self, record, fields, name):
@@ -129,7 +130,8 @@ class SalesforceRestConfig(models.Model):
             return {
                 "url": url,
                 "headers": headers,
-                'fields': fields
+                'fields': fields,
+                'method': salesforce_config.method
             }
         
     def build_rest_request_delete(self,record_id,name):
@@ -155,7 +157,8 @@ class SalesforceRestConfig(models.Model):
 
             return {
                 "url": url,
-                "headers": headers
+                "headers": headers,
+                'method': salesforce_config.method
             }
         
         

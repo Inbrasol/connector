@@ -48,10 +48,10 @@ class AccountMoveListener(Component):
             rest_response = self.env['salesforce.rest.config'].post(rest_request['url'],rest_request['headers'],rest_request['fields'])
             print("Response")
             print(rest_response)
-            if rest_response.status_code != 204:
-                _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
-            else:
+            if rest_response.status_code == 204:
                 record.write({'sf_id':rest_response.json()['id']})
+            else:
+                _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
 
     @skip_if(lambda self, record, fields: not record or not fields)
     def on_account_move_update(self, record, fields):
@@ -59,11 +59,17 @@ class AccountMoveListener(Component):
         print(fields)
         rest_request = self.env['salesforce.rest.config'].build_rest_request_create(record, fields, 'account_move_update')
         if rest_request:
-            rest_response = self.env['salesforce.rest.config'].put(rest_request['url'],rest_request['headers'],rest_request['fields'])
+            rest_response = None
+            match rest_request['method']:
+                case 'PATCH':
+                    rest_response = self.env['salesforce.rest.config'].patch(rest_request['url'],rest_request['headers'],rest_request['fields'])
+                case 'PUT':
+                    rest_response = self.env['salesforce.rest.config'].put(rest_request['url'],rest_request['headers'],rest_request['fields'])
             print("Response")
             print(rest_response)
             if rest_response.status_code != 204:
                 _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
+                
 
     @skip_if(lambda self: not self)
     def on_account_move_delete(self,record_id):
