@@ -55,7 +55,7 @@ class SalesforcePartnerListener(Component):
             rest_response = self.env['salesforce.rest.config'].post(rest_request['url'],rest_request['headers'],rest_request['fields'])
             print("Response")
             print(rest_response)
-            if rest_response.status_code != 204:
+            if rest_response.status_code != 201:
                 _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
             else:
                 record.write({'sf_id':rest_response.json()['id']})

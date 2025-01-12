@@ -4,52 +4,50 @@ import json
 
 _logger = logging.getLogger(__name__)
 
-from odoo import models, fields, api
+from odoo import models, fields, api , _
 from datetime import date
-
 from odoo.addons.component.core import Component
 from odoo.addons.component_event import skip_if
 
 
-class SaleOrder(models.Model):
-    _inherit = 'sale.order'
+class CrmLeadProduct(models.Model):
+    _inherit = 'crm.lead.product'
 
     @api.model
     def create(self, vals):
-        sale_order = super(SaleOrder, self).create(vals)
-        print("Sale Order Create")
-        self._event('on_sale_order_create').notify(sale_order, fields=vals.keys())
-        return sale_order
+        lead_product = super(CrmLeadProduct, self).create(vals)
+        self._event('on_crm_lead_product_create').notify(lead_product, fields=vals.keys())
+        return lead_product
     
     @api.model
     def write(self, vals):
-        sale_order = super(SaleOrder, self).write(vals)
+        lead_product = super(CrmLeadProduct, self).write(vals)
         changed_fields = []
         for field, value in vals.items():
             if self[field] != value:
                     changed_fields.append(field)
-        print("Sale Order Update")
-        self._event('on_sale_order_update').notify(sale_order, changed_fields)
-        return sale_order
+        self._event('on_crm_lead_product_update').notify(lead_product, changed_fields)
+        return lead_product
     
     @api.model
     def unlink(self):
-        for order in self:
-            self._event('on_sale_order_unlink').notify(order, fields=None)
-        return super(SaleOrder, self).unlink()
+        for lead_product in self:
+            self._event('on_crm_lead_product_unlink').notify(lead_product, fields=None)
+        return super(CrmLeadProduct, self).unlink()
     
 
-class SaleOrderListener(Component):
-    _name = 'sale.order.listener'
+
+class CrmLeadProductListener(Component):
+    _name = 'crm.lead.product.listener'
     _inherit = 'base.event.listener'
-    _apply_on = ['sale.order']
+    _apply_on = ['crm.lead.product']
     
     
     @skip_if(lambda self, record, fields: not record or not fields)
-    def on_sale_order_create(self, record, fields=None):
+    def on_crm_lead_product_create(self, record, fields=None):
         print("Fields")
         print(fields)
-        rest_request = self.env['salesforce.rest.config'].build_rest_request_create(record, fields, 'sale_order_create')
+        rest_request = self.env['salesforce.rest.config'].build_rest_request_create(record, fields, 'crm_lead_product_create')
         if rest_request:
             rest_response = self.env['salesforce.rest.config'].post(rest_request['url'],rest_request['headers'],rest_request['fields'])
             print("Response")
@@ -58,12 +56,12 @@ class SaleOrderListener(Component):
                 record.write({'sf_id':rest_response.json()['id']})
             else:
                 _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
-
+    
     @skip_if(lambda self, record, fields: not record or not fields)
-    def on_sale_order_update(self, record, fields):
+    def on_crm_lead_product_update(self, record, fields):
         print("Fields")
         print(fields)
-        rest_request = self.env['salesforce.rest.config'].build_rest_request_create(record, fields, 'sale_order_update')
+        rest_request = self.env['salesforce.rest.config'].build_rest_request_update(record, fields, 'crm_lead_product_update')
         if rest_request:
             rest_response = None
             match rest_request['method']:
@@ -71,17 +69,15 @@ class SaleOrderListener(Component):
                     rest_response = self.env['salesforce.rest.config'].patch(rest_request['url'],rest_request['headers'],rest_request['fields'])
                 case 'PUT':
                     rest_response = self.env['salesforce.rest.config'].put(rest_request['url'],rest_request['headers'],rest_request['fields'])  
-            print("Response")
-            print(rest_response)
-            if rest_response.status_code != 204:
-                _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
-                
+        if rest_response.status_code != 204:
+            _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
 
-    @skip_if(lambda self: not self)
-    def on_sale_order_unlink(self,record_id):
+    
+    @skip_if(lambda self, record, fields: not record or not fields)
+    def on_crm_lead_product_unlink(self, record_id):
         print("record_id")
         print(record_id)
-        rest_request = self.env['salesforce.rest.config'].build_rest_request_delete(record_id,'crm_lead_delete')
+        rest_request = self.env['salesforce.rest.config'].build_rest_request_delete(record_id,'crm_lead_product_delete')
         if rest_request:
             rest_response = self.env['salesforce.rest.config'].delete(rest_request['url'],rest_request['headers'])
             print("Response")
