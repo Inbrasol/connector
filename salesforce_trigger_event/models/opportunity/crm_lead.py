@@ -36,11 +36,9 @@ class CrmLead(models.Model):
 
     @api.model
     def unlink(self, vals):
-        leads = self.ids
-        res = super(CrmLead, self).unlink()
-        for lead in leads:
-            self._event('on_crm_lead_unlink').notify(lead)
-        return res
+        lead = super(CrmLead, self).unlink()
+        self._event('on_crm_lead_unlink').notify(lead,lead.id)
+        return lead
 
 
 class CrmLeadEventListener(Component):
@@ -62,29 +60,31 @@ class CrmLeadEventListener(Component):
                 _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
             else:
                 record.write({'sf_id':rest_response.json()['id']})
-
+    
 
     @skip_if(lambda self, record, fields: not record or not fields)
     def on_crm_lead_update(self, record, fields=None):
         print("Fields")
         print(fields)
-        rest_request = self.env['salesforce.rest.config'].build_rest_request_update(record,fields,'crm_lead_update')
-        if rest_request:
-            rest_response = self.env['salesforce.rest.config'].patch(rest_request['url'],rest_request['headers'],rest_request['fields'])
-            print("Response")
-            print(rest_response)
-            if rest_response.status_code != 204:
-                _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
+        if record.sf_id not in [False, None, '']:
+            rest_request = self.env['salesforce.rest.config'].build_rest_request_update(record,fields,'crm_lead_update')
+            if rest_request:
+                rest_response = self.env['salesforce.rest.config'].patch(rest_request['url'],rest_request['headers'],rest_request['fields'])
+                print("Response")
+                print(rest_response)
+                if rest_response.status_code != 204:
+                    _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
 
 
     @skip_if(lambda self: not self)
-    def on_crm_lead_unlink(self,record_id):
+    def on_crm_lead_unlink(self,record,record_id):
         print("record_id")
         print(record_id)
-        rest_request = self.env['salesforce.rest.config'].build_rest_request_delete(record_id,'crm_lead_delete')
-        if rest_request:
-            rest_response = self.env['salesforce.rest.config'].delete(rest_request['url'],rest_request['headers'])
-            print("Response")
-            print(rest_response)
-            if rest_response.status_code != 204:
-                _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
+        if record.sf_id not in [False, None, '']:
+            rest_request = self.env['salesforce.rest.config'].build_rest_request_delete(record_id,'crm_lead_delete')
+            if rest_request:
+                rest_response = self.env['salesforce.rest.config'].delete(rest_request['url'],rest_request['headers'])
+                print("Response")
+                print(rest_response)
+                if rest_response.status_code != 204:
+                    _logger.error(f"Failed to update Salesforce record: {rest_response.content}")

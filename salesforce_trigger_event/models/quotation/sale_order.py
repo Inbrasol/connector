@@ -29,14 +29,15 @@ class SaleOrder(models.Model):
             if self[field] != value:
                     changed_fields.append(field)
         print("Sale Order Update")
-        self._event('on_sale_order_update').notify(sale_order, changed_fields)
+        if len(changed_fields) > 0:
+            self._event('on_sale_order_update').notify(sale_order, changed_fields)
         return sale_order
     
     @api.model
     def unlink(self):
-        for order in self:
-            self._event('on_sale_order_unlink').notify(order, fields=None)
-        return super(SaleOrder, self).unlink()
+        self._event('on_sale_order_delete').notify(self,self.id)
+        order = super(SaleOrder, self).unlink()
+        return order
     
 
 class SaleOrderListener(Component):
@@ -46,7 +47,7 @@ class SaleOrderListener(Component):
     
     
     @skip_if(lambda self, record, fields: not record or not fields)
-    def on_sale_order_create(self, record, fields=None):
+    def on_sale_order_create(self, record, fields):
         print("Fields")
         print(fields)
         rest_request = self.env['salesforce.rest.config'].build_rest_request_create(record, fields, 'sale_order_create')
@@ -63,28 +64,29 @@ class SaleOrderListener(Component):
     def on_sale_order_update(self, record, fields):
         print("Fields")
         print(fields)
-        rest_request = self.env['salesforce.rest.config'].build_rest_request_create(record, fields, 'sale_order_update')
-        if rest_request:
-            rest_response = None
-            match rest_request['method']:
-                case 'PATCH':
-                    rest_response = self.env['salesforce.rest.config'].patch(rest_request['url'],rest_request['headers'],rest_request['fields'])
-                case 'PUT':
-                    rest_response = self.env['salesforce.rest.config'].put(rest_request['url'],rest_request['headers'],rest_request['fields'])  
-            print("Response")
-            print(rest_response)
-            if rest_response.status_code != 204:
-                _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
+        if record.sf_id not in [False, None, '']:
+            rest_request = self.env['salesforce.rest.config'].build_rest_request_update(record, fields, 'sale_order_update')
+            if rest_request:
+                rest_response = None
+                match rest_request['method']:
+                    case 'PATCH':
+                        rest_response = self.env['salesforce.rest.config'].patch(rest_request['url'],rest_request['headers'],rest_request['fields'])
+                    case 'PUT':
+                        rest_response = self.env['salesforce.rest.config'].put(rest_request['url'],rest_request['headers'],rest_request['fields'])  
+                print("Response")
+                print(rest_response)
+                if rest_response.status_code != 204:
+                    _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
                 
-
     @skip_if(lambda self: not self)
-    def on_sale_order_unlink(self,record_id):
+    def on_sale_order_delete(self,record, record_id):
         print("record_id")
         print(record_id)
-        rest_request = self.env['salesforce.rest.config'].build_rest_request_delete(record_id,'crm_lead_delete')
-        if rest_request:
-            rest_response = self.env['salesforce.rest.config'].delete(rest_request['url'],rest_request['headers'])
-            print("Response")
-            print(rest_response)
-            if rest_response.status_code != 204:
-                _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
+        if record.sf_id not in [False,None, '']:
+            rest_request = self.env['salesforce.rest.config'].build_rest_request_delete(record.sf_id,'crm_lead_delete')
+            if rest_request:
+                rest_response = self.env['salesforce.rest.config'].delete(rest_request['url'],rest_request['headers'])
+                print("Response")
+                print(rest_response)
+                if rest_response.status_code != 204:
+                    _logger.error(f"Failed to update Salesforce record: {rest_response.content}")

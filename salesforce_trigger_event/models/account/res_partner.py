@@ -33,10 +33,8 @@ class ResPartner(models.Model):
     
     @api.model
     def unlink(self):
-        partner_ids = self.ids
         partner = super(ResPartner, self).unlink()
-        for partner_id in partner_ids:
-            self._event('on_res_partner_delete').notify(partner_id)
+        self._event('on_res_partner_delete').notify(partner,partner.id)
         return partner
 
 
@@ -64,22 +62,24 @@ class SalesforcePartnerListener(Component):
     def on_res_partner_update(self, record, fields):
         print("Fields")
         print(fields)
-        rest_request = self.env['salesforce.rest.config'].build_rest_request_update(record,fields,'res_partner_update')
-        if rest_request:
-            rest_response = self.env['salesforce.rest.config'].patch(rest_request['url'],rest_request['headers'],rest_request['fields'])
-            print("Response")
-            print(rest_response)
-            if rest_response.status_code != 204:
-                _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
+        if record.sf_id not in [False, None, '']:
+            rest_request = self.env['salesforce.rest.config'].build_rest_request_update(record,fields,'res_partner_update')
+            if rest_request:
+                rest_response = self.env['salesforce.rest.config'].patch(rest_request['url'],rest_request['headers'],rest_request['fields'])
+                print("Response")
+                print(rest_response)
+                if rest_response.status_code != 204:
+                    _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
 
     @skip_if(lambda self: not self)
-    def on_res_partner_delete(self,record_id):
+    def on_res_partner_delete(self,record,record_id):
         print("record_id")
         print(record_id)
-        rest_request = self.env['salesforce.rest.config'].build_rest_request_delete(record_id,'res_partner_delete')
-        if rest_request:
-            rest_response = self.env['salesforce.rest.config'].delete(rest_request['url'],rest_request['headers'])
-            print("Response")
-            print(rest_response)
-            if rest_response.status_code != 204:
-                _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
+        if record.sf_id not in [False, None, '']:
+            rest_request = self.env['salesforce.rest.config'].build_rest_request_delete(record_id,'res_partner_delete')
+            if rest_request:
+                rest_response = self.env['salesforce.rest.config'].delete(rest_request['url'],rest_request['headers'])
+                print("Response")
+                print(rest_response)
+                if rest_response.status_code != 204:
+                    _logger.error(f"Failed to update Salesforce record: {rest_response.content}")

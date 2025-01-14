@@ -8,6 +8,7 @@
                 <sheet>
                     <group>
                         <field name="name"/>
+                        <field name="type"/>
                         <field name="salesforce_backend_id"/>
                         <field name="endpoint"/>
                         <field name="method"/>
@@ -27,6 +28,19 @@
                                     <field name="odoo_field_relation_model" invisible = "1"/>
                                     <field name="odoo_related_field_id"/>
                                     <field name="salesforce_field"/>
+                                    <field name="default_value"/>
+                                    <field name="active"/>
+                                </tree>
+                            </field>
+                        </page>
+                        <page name="RecordType">
+                            <field name="record_types">
+                                <tree editable="bottom">
+                                    <field name="salesforce_rest_config_id" readonly = "1" context="{'default_salesforce_rest_config_id':active_id}"/>
+                                    <field name="odoo_model_id" invisible="1"/>
+                                    <field name="odoo_field_id"/>
+                                    <field name="odoo_field_value"/>
+                                    <field name="record_type_id"/>
                                     <field name="active"/>
                                 </tree>
                             </field>
@@ -43,6 +57,7 @@
         <field name="arch" type="xml">
             <tree string="Salesforce REST Config">
                 <field name="name"/>
+                <field name="type"/>
                 <field name="salesforce_backend_id"/>
                 <field name="endpoint"/>
                 <field name="method"/>
