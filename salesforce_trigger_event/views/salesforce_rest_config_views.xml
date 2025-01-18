@@ -15,6 +15,10 @@
                         <field name="sobject_api_name"/>
                         <field name="version"/>
                         <field name="odoo_model_id"/>
+                        <field name="child_field_name"/>
+                        <field name="line_rest_config_id"/>
+                        <field name="child_rel_name"/>
+                        <field name="child_rel_filter"/>
                         <field name="active"/>
                     </group>
                     <notebook>
@@ -38,8 +42,11 @@
                                 <tree editable="bottom">
                                     <field name="salesforce_rest_config_id" readonly = "1" context="{'default_salesforce_rest_config_id':active_id}"/>
                                     <field name="odoo_model_id" invisible="1"/>
+                                    <field name="type"/>
                                     <field name="odoo_field_id"/>
                                     <field name="odoo_field_value"/>
+                                    <field name="odoo_field_relation_model" invisible = "1"/>
+                                    <field name="odoo_related_field_id"/>
                                     <field name="record_type_id"/>
                                     <field name="active"/>
                                 </tree>
@@ -75,5 +82,50 @@
         <field name="view_mode">tree,form</field>
     </record>
 
+    <record id="view_salesforce_rest_fields_form" model="ir.ui.view">
+        <field name="name">salesforce.rest.fields.form</field>
+        <field name="model">salesforce.rest.fields</field>
+        <field name="arch" type="xml">
+            <form string="Salesforce REST Fields">
+                <sheet>
+                    <group>
+                        <field name="salesforce_rest_config_id"/>
+                        <field name="odoo_model_id"/>
+                        <field name="odoo_field_id"/>
+                        <field name="type"/>
+                        <field name="odoo_field_relation_model"/>
+                        <field name="odoo_related_field_id"/>
+                        <field name="salesforce_field"/>
+                        <field name="default_value"/>
+                        <field name="active"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_salesforce_rest_fields_tree" model="ir.ui.view">
+        <field name="name">salesforce.rest.fields.tree</field>
+        <field name="model">salesforce.rest.fields</field>
+        <field name="arch" type="xml">
+            <tree string="Salesforce REST Fields">
+                <field name="salesforce_rest_config_id"/>
+                <field name="odoo_model_id"/>
+                <field name="odoo_field_id"/>
+                <field name="type"/>
+                <field name="salesforce_field"/>
+                <field name="default_value"/>
+                <field name="active"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="action_salesforce_rest_fields" model="ir.actions.act_window">
+        <field name="name">Salesforce REST Fields</field>
+        <field name="res_model">salesforce.rest.fields</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
     <menuitem id="menu_salesforce_rest_config" name="Salesforce REST Config" parent="base.menu_custom" action="action_salesforce_rest_config" sequence="100"/>
+    <menuitem id="menu_salesforce_rest_fields" name="Salesforce REST Fields" parent="base.menu_custom" action="action_salesforce_rest_fields" sequence="100"/>
 </odoo>

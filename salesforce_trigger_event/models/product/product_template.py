@@ -3,12 +3,13 @@ import logging
 
 _logger = logging.getLogger(__name__)
 
-from odoo import models, api
+from odoo import models, api, fields
 from odoo.addons.component.core import Component
 from odoo.addons.component_event import skip_if
 
 class ProductTemplate(models.Model):
     _inherit = 'product.template'
+    skip_sync = fields.Boolean(string='Skip Sync', default=False, copy=False)
 
     @api.model
     def create(self, vals):
@@ -18,14 +19,23 @@ class ProductTemplate(models.Model):
     
     @api.model
     def write(self, vals):
+        if self.env.context.get('skip_sync'):
+            super(ProductTemplate, self).write(vals)
+            return self
+        
+        # Set skip_sync in context to avoid recursion
+        context_with_skip_sync = dict(self.env.context, skip_sync=True)
         changed_fields = []
         for field, value in vals.items():
             if self[field] != value:
                 changed_fields.append(field)
-        res = super(ProductTemplate, self).write(vals)
+        super(ProductTemplate, self.with_context(context_with_skip_sync)).write(vals)
         if len(changed_fields) > 0:
-            self._event('on_product_template_update').notify(self,changed_fields)
-        return res
+            self._event('on_product_template_update').notify(self, changed_fields)
+
+        print("Product Template Update")
+        print(self)
+        return self
 
     @api.model
     def unlink(self):
@@ -51,7 +61,8 @@ class ProductProductListener(Component):
                 print(rest_response)
                 if rest_response.status_code == 201:
                     record.write({'sf_id':rest_response.json()['id']})
-                    rest_request_price_book = self.env['salesforce.rest.config'].build_rest_request_create(record, fields, 'product_price_book_create')
+                    ###AGREGAR COLOCAR EL PRICEBOOK ENTRY CON GET
+                    rest_request_price_book = self.env['salesforce.rest.config'].build_rest_reque(record, fields, 'product_price_book_create')
                     if rest_request_price_book:
                         rest_response_price_book = self.env['salesforce.rest.config'].post(rest_request_price_book['url'],rest_request_price_book['headers'],rest_request_price_book['fields'])
                         print("Response Price Book")

@@ -14,6 +14,8 @@ from odoo.addons.component_event import skip_if
 class SaleOrderLine(models.Model):
     _inherit = 'sale.order.line'
 
+    skip_sync = fields.Boolean(string='Skip Sync', default=False, copy=False)
+
     @api.model
     def create(self, vals):
         line = super(SaleOrderLine, self).create(vals)
@@ -22,14 +24,21 @@ class SaleOrderLine(models.Model):
     
     @api.model
     def write(self, vals):
+        if self.env.context.get('skip_sync'):
+            super(SaleOrderLine, self).write(vals)
+            return self
+        
+        # Set skip_sync in context to avoid recursion
+        context_with_skip_sync = dict(self.env.context, skip_sync=True)
         changed_fields = []
         for field, value in vals.items():
             if self[field] != value:
                 changed_fields.append(field)
-        res = super(SaleOrderLine, self).write(vals)
+        super(SaleOrderLine, self.with_context(context_with_skip_sync)).write(vals)
         if len(changed_fields) > 0:
             self._event('on_sale_order_line_update').notify(self, changed_fields)
-        return res
+        self.write({'skip_sync':False})
+        return self
     
 
     @api.model

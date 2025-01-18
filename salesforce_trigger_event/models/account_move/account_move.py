@@ -3,7 +3,7 @@ import logging
 
 _logger = logging.getLogger(__name__)
 
-from odoo import models, api
+from odoo import models, api, fields
 from odoo.addons.component.core import Component
 from odoo.addons.component_event import skip_if
 
@@ -11,6 +11,8 @@ from odoo.addons.component_event import skip_if
 
 class AccountMove(models.Model):
     _inherit = 'account.move'
+
+    skip_sync = fields.Boolean(string='Skip Sync', default=False, copy=False)
 
     @api.model
     def create(self, vals):
@@ -20,14 +22,23 @@ class AccountMove(models.Model):
     
     @api.model
     def write(self, vals):
-        account_move = super(AccountMove, self).write(vals)
+        if self.env.context.get('skip_sync'):
+            super(AccountMove, self).write(vals)
+            return self
+        
+        # Set skip_sync in context to avoid recursion
+        context_with_skip_sync = dict(self.env.context, skip_sync=True)
         changed_fields = []
         for field, value in vals.items():
             if self[field] != value:
-                    changed_fields.append(field)
+                changed_fields.append(field)
+        super(AccountMove, self.with_context(context_with_skip_sync)).write(vals)
         if len(changed_fields) > 0:
-            self._event('on_account_move_update').notify(account_move, changed_fields)
-        return account_move
+            self._event('on_account_move_update').notify(self, changed_fields)
+
+        print("Account Move Update")
+        print(self)
+        return self
     
     @api.model
     def unlink(self):
@@ -50,10 +61,23 @@ class AccountMoveListener(Component):
             rest_response = self.env['salesforce.rest.config'].post(rest_request['url'],rest_request['headers'],rest_request['fields'])
             print("Response")
             print(rest_response)
-            if rest_response.status_code == 201:
-                record.write({'sf_id':rest_response.json()['id']})
-            else:
-                _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
+            print("Responde JSON")
+            print(rest_response.json())
+            if rest_request['type'] == 'composite':
+                if rest_response.status_code in [200, 201]:
+                    for record_response in rest_response.json()['compositeResponse']:
+                        if record_response['httpStatusCode'] in [200, 201] and record_response['referenceId'] in  rest_request['map_ref_fields'].keys():
+                            map_field = rest_request['map_ref_fields'][record_response['referenceId']]
+                            record_to_update = self.env[map_field['model']].browse(map_field['id'])
+                            record_to_update.write({'sf_id': record_response['body']['id']})
+                else:
+                    _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
+            
+            elif rest_request['type'] == 'single':
+                if rest_response.status_code in [200, 201]:
+                    record.write({'sf_id': rest_response.json()['id']})
+                else:
+                    _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
 
     @skip_if(lambda self, record, fields: not record or not fields)
     def on_account_move_update(self, record, fields):

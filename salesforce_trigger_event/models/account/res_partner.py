@@ -11,6 +11,9 @@ from datetime import date
 
 class ResPartner(models.Model):
     _inherit = 'res.partner'
+    
+    skip_sync = fields.Boolean(string='Skip Sync', default=False, copy=False)
+
 
     @api.model
     def create(self, vals):
@@ -20,16 +23,23 @@ class ResPartner(models.Model):
     
     @api.model
     def write(self, vals):
+        if self.env.context.get('skip_sync'):
+            super(ResPartner, self).write(vals)
+            return self
+        
+        # Set skip_sync in context to avoid recursion
+        context_with_skip_sync = dict(self.env.context, skip_sync=True)
         changed_fields = []
         for field, value in vals.items():
             if self[field] != value:
-                    changed_fields.append(field)
-        print("Res Partner Update")
-        print(changed_fields)
-        result = super(ResPartner, self).write(vals)
+                changed_fields.append(field)
+        super(ResPartner, self.with_context(context_with_skip_sync)).write(vals)
         if len(changed_fields) > 0:
             self._event('on_res_partner_update').notify(self, changed_fields)
-        return result
+
+        print("Res Partner Update")
+        print(self)
+        return self
     
     @api.model
     def unlink(self):
