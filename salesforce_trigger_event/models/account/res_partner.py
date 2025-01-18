@@ -21,6 +21,7 @@ class ResPartner(models.Model):
         self._event('on_res_partner_create').notify(partner, fields=vals.keys())
         return partner
     
+    """
     @api.model
     def write(self, vals):
         if self.env.context.get('skip_sync'):
@@ -40,6 +41,7 @@ class ResPartner(models.Model):
         print("Res Partner Update")
         print(self)
         return self
+    """
     
     @api.model
     def unlink(self):
