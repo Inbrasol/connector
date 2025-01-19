@@ -12,7 +12,7 @@ from odoo.addons.component_event import skip_if
 class AccountMoveLine(models.Model):
     _inherit = 'account.move.line'
 
-    skip_sync = fields.Boolean(string='Skip Sync', default=False, copy=False)
+    #skip_sync = fields.Boolean(string='Skip Sync', default=False, copy=False)
 
     @api.model
     def create(self, vals):

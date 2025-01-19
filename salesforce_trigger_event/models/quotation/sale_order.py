@@ -14,7 +14,7 @@ from odoo.addons.component_event import skip_if
 class SaleOrder(models.Model):
     _inherit = 'sale.order'
     
-    skip_sync = fields.Boolean(string='Skip Sync', default=False, copy=False)
+    #skip_sync = fields.Boolean(string='Skip Sync', default=False, copy=False)
 
     @api.model
     def create(self, vals):
