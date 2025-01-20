@@ -49,7 +49,8 @@ class CrmLeadProduct(models.Model):
     
     @api.model
     def unlink(self):
-        self._event('on_crm_lead_product_delete').notify(self, self.id)
+        for record in self:
+                self._event('on_crm_lead_product_delete').notify(record, record.id)
         lead_product = super(CrmLeadProduct, self).unlink()
         return lead_product
     
@@ -87,8 +88,8 @@ class CrmLeadProductListener(Component):
                         rest_response = self.env['salesforce.rest.config'].patch(rest_request['url'],rest_request['headers'],rest_request['fields'])
                     case 'PUT':
                         rest_response = self.env['salesforce.rest.config'].put(rest_request['url'],rest_request['headers'],rest_request['fields'])  
-            if rest_response.status_code != 204:
-                _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
+                if rest_response.status_code != 204:
+                    _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
     
     @skip_if(lambda self, record, fields: not record or not fields)
     def on_crm_lead_product_delete(self, record, record_id):

@@ -40,7 +40,6 @@ class ResPartner(models.Model):
         print("Res Partner Update")
         print(self)
         return self
-
     
     @api.model
     def unlink(self):
