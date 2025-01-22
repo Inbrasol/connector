@@ -30,7 +30,10 @@ class AccountMove(models.Model):
         context_with_skip_sync = dict(self.env.context, skip_sync=True)
         changed_fields = []
         for field, value in vals.items():
-            if self[field] != value:
+            if isinstance(self[field], models.BaseModel):
+                if self[field].id != value:
+                    changed_fields.append(field)
+            elif self[field] != value:
                 changed_fields.append(field)
         super(AccountMove, self.with_context(context_with_skip_sync)).write(vals)
         if len(changed_fields) > 0:
