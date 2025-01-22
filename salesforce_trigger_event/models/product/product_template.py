@@ -60,15 +60,26 @@ class ProductProductListener(Component):
                 print("Response")
                 print(rest_response)
                 if rest_response.status_code == 201:
-                    record.write({'sf_id':rest_response.json()['id']})
-                    ###AGREGAR COLOCAR EL PRICEBOOK ENTRY CON GET
-                    rest_request_price_book = self.env['salesforce.rest.config'].build_rest_reque(record, fields, 'product_price_book_create')
-                    if rest_request_price_book:
-                        rest_response_price_book = self.env['salesforce.rest.config'].post(rest_request_price_book['url'],rest_request_price_book['headers'],rest_request_price_book['fields'])
+                    sf_id = rest_response.json()['id']
+                    query = f"SELECT+Id,Pricebook2Id,Product2Id,UnitPrice,IsActive+FROM+PriceBookEntry+WHERE+Product2Id='{sf_id}'"
+                    request_pricebook_entry = self.env['salesforce.rest.config'].build_rest_request_query(query, 'product_template_pricebook_entry_query')
+                    if request_pricebook_entry:
+                        rest_response_pricebook_entry = self.env['salesforce.rest.config'].get(request_pricebook_entry['url'],request_pricebook_entry['headers'])
                         print("Response Price Book")
-                        print(rest_response_price_book)
-                        if rest_response_price_book.status_code != 201:
-                            _logger.error(f"Failed to create PriceBook Salesforce record: {rest_response_price_book.content}")
+                        print(rest_response_pricebook_entry)
+                        if rest_response_pricebook_entry.status_code == 200:
+                            response_data = rest_response_pricebook_entry.json()
+                            for record_data in response_data['records']:
+                                pricebook_entry_vals = {
+                                    'sf_id': sf_id,
+                                    'sf_pricebook_entry_id': record_data['Id'],
+                                    'sf_pricebook_id': record_data['Pricebook2Id']
+                                }
+                                record.write(pricebook_entry_vals)
+                        else:
+                            record.write({'sf_id':sf_id})
+                    else:
+                        record.write({'sf_id':sf_id})
                 else:
                     _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
 
@@ -89,7 +100,7 @@ class ProductProductListener(Component):
                 print(rest_response)
                 if rest_response.status_code != 204:
                     _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
-
+                
     @skip_if(lambda self: not self)
     def on_product_template_delete(self,record,record_id):
         print("record_id")

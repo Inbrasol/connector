@@ -376,7 +376,7 @@ class SalesforceRestConfig(models.Model):
 
 
     # CRUD REST
-    def build_rest_request_query(self, record, fields ,name):
+    def build_rest_request_query(self,query ,name):
         salesforce_config = self.env['salesforce.rest.config'].search([('name', '=', name),('active','=', True)], limit=1)
         if not salesforce_config:
             return
@@ -388,23 +388,15 @@ class SalesforceRestConfig(models.Model):
             # Your custom logic for update event
             endpoint = salesforce_config.endpoint
             version = salesforce_config.version
-            sobject_api_name = salesforce_config.sobject_api_name  # Assuming the SObject API name is Opportunity
-            url = f"{endpoint}/services/data/v{version}/sobjects/{sobject_api_name}"
+            url = f"{endpoint}/services/data/v{version}/query?q="+query
             headers = {
                 'Content-Type': 'application/json',
                 'Authorization': f"Bearer {authenticate['access_token']}"
             }
 
-            fields = self.build_rest_fields(salesforce_config,record,fields)
-            print("Fields")
-            print(fields)
-            print("headers")
-            print(headers)
-
             return {
                 "url": url,
                 "headers": headers,
-                'fields': json.dumps(fields, default=self.json_serial),
                 'method': salesforce_config.method,
                 'type': salesforce_config.type
             }
@@ -466,7 +458,6 @@ class SalesforceRecordType(models.Model):
     _description = 'Salesforce Record Type'
 
     salesforce_rest_config_id = fields.Many2one('salesforce.rest.config', 'Salesforce REST Configuration', required=True, default=lambda self: self.env.context.get('active_id'))
-    name = fields.Char('Name', required=True)
     odoo_model_id = fields.Many2one('ir.model', 'Odoo Model', related='salesforce_rest_config_id.odoo_model_id', readonly=True)
     odoo_field_id = fields.Many2one('ir.model.fields', 'Odoo Field', required=True, ondelete='cascade' , domain="[('model_id', '=', odoo_model_id)]")
     type = fields.Selection([('string', 'String'), ('related', 'Related')], 'Type', required=True)
