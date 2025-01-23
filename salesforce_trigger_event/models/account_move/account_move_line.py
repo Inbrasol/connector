@@ -30,7 +30,9 @@ class AccountMoveLine(models.Model):
         context_with_skip_sync = dict(self.env.context, skip_sync=True)
         changed_fields = []
         for field, value in vals.items():
-            if isinstance(self[field], models.BaseModel):
+            if self._fields[field].type in ['one2many', 'many2many']:
+                continue
+            elif isinstance(self[field], models.BaseModel):
                 if self[field].id != value:
                     changed_fields.append(field)
             elif self[field] != value:

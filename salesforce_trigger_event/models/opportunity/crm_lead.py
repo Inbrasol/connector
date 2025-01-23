@@ -12,8 +12,6 @@ from odoo.addons.component_event import skip_if
 
 class CrmLead(models.Model):
     _inherit = 'crm.lead'
-
-    #skip_sync = fields.Boolean(string='Skip Sync', default=False, copy=False)
     
     @api.model
     def create(self, vals):
@@ -27,12 +25,19 @@ class CrmLead(models.Model):
         if self.env.context.get('skip_sync'):
             super(CrmLead, self).write(vals)
             return self
-        
+        print("Vals")
+        print(vals)
         # Set skip_sync in context to avoid recursion
         context_with_skip_sync = dict(self.env.context, skip_sync=True)
         changed_fields = []
         for field, value in vals.items():
-            if isinstance(self[field], models.BaseModel):
+            print("Field")
+            print(field)
+            print("Value")
+            print(value)
+            if self._fields[field].type in ['one2many', 'many2many']:
+                continue
+            elif isinstance(self[field], models.BaseModel):
                 if self[field].id != value:
                     changed_fields.append(field)
             elif self[field] != value:
