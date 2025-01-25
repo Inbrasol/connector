@@ -42,7 +42,6 @@ class SaleOrderLine(models.Model):
         super(SaleOrderLine, self.with_context(context_with_skip_sync)).write(vals)
         if len(changed_fields) > 0:
             self._event('on_sale_order_line_update').notify(self, changed_fields)
-        self.write({'skip_sync':False})
         return self
     
 
