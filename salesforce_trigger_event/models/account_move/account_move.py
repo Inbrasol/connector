@@ -97,9 +97,8 @@ class AccountMoveListener(Component):
                         rest_response = self.env['salesforce.rest.config'].patch(rest_request['url'],rest_request['headers'],rest_request['fields'])
                     case 'PUT':
                         rest_response = self.env['salesforce.rest.config'].put(rest_request['url'],rest_request['headers'],rest_request['fields'])
-                print("Response")
-                print(rest_response)
-                if rest_response.status_code != 204:
+                
+                if rest_response and rest_response.status_code != 204:
                     _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
                 
     @skip_if(lambda self: not self)
