@@ -158,6 +158,8 @@ class SalesforceRestConfig(models.Model):
             elif field.type == 'related' and getattr(record, field.odoo_field_id.name) not in [None, '', False]:
                 fields_to_rest.update({field.salesforce_field: getattr(record, field.odoo_field_id.name)[field.odoo_related_field_id.name]})
 
+            elif field.is_always_update:
+                fields_to_rest.update({field.salesforce_field : getattr(record,field.odoo_field_id.name)})
 
         for record_type in sf_config.record_types.filtered(lambda r: r.active):
             match record_type.type:
@@ -452,6 +454,7 @@ class SalesforceRestFields(models.Model):
     default_value = fields.Char('Default Value')
     active = fields.Boolean('Active', default=True)
     is_record_type = fields.Boolean('Is Record Type', default=False)
+    is_always_update = fields.Boolean('Is Always Update', default=False)
 
 class SalesforceRecordType(models.Model):
     _name = 'salesforce.record.type'
