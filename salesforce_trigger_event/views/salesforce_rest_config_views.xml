@@ -33,6 +33,7 @@
                                     <field name="odoo_related_field_id"/>
                                     <field name="salesforce_field"/>
                                     <field name="default_value"/>
+                                    <field name="is_always_update"/>
                                     <field name="active"/>
                                 </tree>
                             </field>
@@ -97,6 +98,7 @@
                         <field name="odoo_related_field_id"/>
                         <field name="salesforce_field"/>
                         <field name="default_value"/>
+                        <field name='is_always_update'/>
                         <field name="active"/>
                     </group>
                 </sheet>
@@ -115,6 +117,7 @@
                 <field name="type"/>
                 <field name="salesforce_field"/>
                 <field name="default_value"/>
+                <field name='is_always_update'/>
                 <field name="active"/>
             </tree>
         </field>
