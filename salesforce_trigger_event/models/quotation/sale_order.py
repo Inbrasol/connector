@@ -5,7 +5,7 @@ import json
 _logger = logging.getLogger(__name__)
 
 from odoo import models, fields, api
-from datetime import date
+from datetime import date, datetime
 
 from odoo.addons.component.core import Component
 from odoo.addons.component_event import skip_if
@@ -14,7 +14,6 @@ from odoo.addons.component_event import skip_if
 class SaleOrder(models.Model):
     _inherit = 'sale.order'
     
-    #skip_sync = fields.Boolean(string='Skip Sync', default=False, copy=False)
 
     @api.model
     def create(self, vals):
@@ -76,16 +75,34 @@ class SaleOrderListener(Component):
                         if record_response['httpStatusCode'] in [200, 201] and record_response['referenceId'] in  rest_request['map_ref_fields'].keys():
                             map_field = rest_request['map_ref_fields'][record_response['referenceId']]
                             record_to_update = self.env[map_field['model']].browse(map_field['id'])
-                            record_to_update.write({'sf_id': record_response['body']['id']})
+                            record_to_update.write({
+                                'sf_id': record_response['body']['id'],
+                                'sf_integration_status': 'success',
+                                'sf_integration_datetime': datetime.now()
+                                })
                 else:
                     _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
+                    record.write({
+                        'sf_integration_status': 'failed',
+                        'sf_integration_datetime': datetime.now(),
+                        'sf_integration_error': rest_response.json()
+                        })
             
             elif rest_request['type'] == 'single':
                 if rest_response.status_code in [200, 201]:
-                    record.write({'sf_id': rest_response.json()['id']})
+                    record.write({
+                        'sf_id': rest_response.json()['id'],
+                        'sf_integration_status': 'success',
+                        'sf_integration_datetime': datetime.now()
+                        })
                 else:
                     _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
-
+                    record.write({
+                        'sf_integration_status': 'failed',
+                        'sf_integration_datetime': datetime.now(),
+                        'sf_integration_error': rest_response.json()
+                        })
+    
     @skip_if(lambda self, record, fields: not record or not fields)
     def on_sale_order_update(self, record, fields):
         print("Fields")
@@ -103,9 +120,19 @@ class SaleOrderListener(Component):
                         rest_response = self.env['salesforce.rest.config'].put(rest_request['url'],rest_request['headers'],rest_request['fields'])  
                 print("Response")
                 print(rest_response)
-                if rest_response and rest_response.status_code != 204:
+                if rest_response and rest_response.status_code == 204:
+                    record.write({
+                        'sf_integration_status': 'success',
+                        'sf_integration_datetime': datetime.now()
+                    })
+                else:
                     _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
-                
+                    record.write({
+                        'sf_integration_status': 'failed',
+                        'sf_integration_datetime': datetime.now(),
+                        'sf_integration_error': rest_response.json()
+                    })
+    
     @skip_if(lambda self: not self)
     def on_sale_order_delete(self,record, record_id):
         print("record_id")
@@ -119,3 +146,8 @@ class SaleOrderListener(Component):
                 print(rest_response)
                 if rest_response.status_code != 204:
                     _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
+                    record.write({
+                        'sf_integration_status': 'failed',
+                        'sf_integration_datetime': datetime.now(),
+                        'sf_integration_error': rest_response.json()
+                    })

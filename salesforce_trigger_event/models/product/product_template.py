@@ -6,6 +6,7 @@ _logger = logging.getLogger(__name__)
 from odoo import models, api, fields
 from odoo.addons.component.core import Component
 from odoo.addons.component_event import skip_if
+from datetime import date, datetime
 
 class ProductTemplate(models.Model):
     _inherit = 'product.template'
@@ -78,15 +79,30 @@ class ProductProductListener(Component):
                                 pricebook_entry_vals = {
                                     'sf_id': sf_id,
                                     'sf_pricebook_entry_id': record_data['Id'],
-                                    'sf_pricebook_id': record_data['Pricebook2Id']
+                                    'sf_pricebook_id': record_data['Pricebook2Id'],
+                                    'sf_integration_status': 'success',
+                                    'sf_integration_datetime': datetime.now()
                                 }
                                 record.write(pricebook_entry_vals)
                         else:
-                            record.write({'sf_id':sf_id})
+                            record.write({
+                                        'sf_id':sf_id, 
+                                        'sf_integration_status': 'failed',
+                                        'sf_integration_datetime': datetime.now()
+                                        })
                     else:
-                        record.write({'sf_id':sf_id})
+                        record.write({
+                            'sf_id':sf_id,
+                            'sf_integration_status': 'failed',
+                            'sf_integration_datetime': datetime.now()})
                 else:
                     _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
+                    record.write({
+                        'sf_integration_status': 'failed',
+                        'sf_integration_datetime': datetime.now(),
+                        'sf_integration_error': rest_response.json()
+                    })
+                    
 
     @skip_if(lambda self, record, fields: not record or not fields)
     def on_product_template_update(self, record, fields):
@@ -103,9 +119,20 @@ class ProductProductListener(Component):
                         rest_response = self.env['salesforce.rest.config'].put(rest_request['url'],rest_request['headers'],rest_request['fields'])  
                 print("Response")
                 print(rest_response)
-                if rest_response.status_code != 204:
+
+                if rest_response and rest_response.status_code == 204:
+                    record.write({
+                        'sf_integration_status': 'success',
+                        'sf_integration_datetime': datetime.now()
+                    })
+                else:
                     _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
-                
+                    record.write({
+                        'sf_integration_status': 'failed',
+                        'sf_integration_datetime': datetime.now(),
+                        'sf_integration_error': rest_response.json()
+                    })
+
     @skip_if(lambda self: not self)
     def on_product_template_delete(self,record,record_id):
         print("record_id")
@@ -118,3 +145,8 @@ class ProductProductListener(Component):
                 print(rest_response)
                 if rest_response.status_code != 204:
                     _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
+                    record.write({
+                        'sf_integration_status': 'failed',
+                        'sf_integration_datetime': datetime.now(),
+                        'sf_integration_error': rest_response.json()
+                    })

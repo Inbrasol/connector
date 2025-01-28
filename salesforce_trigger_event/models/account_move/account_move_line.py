@@ -6,13 +6,12 @@ _logger = logging.getLogger(__name__)
 from odoo import models, api, fields
 from odoo.addons.component.core import Component
 from odoo.addons.component_event import skip_if
-
+from datetime import date, datetime
 
 
 class AccountMoveLine(models.Model):
     _inherit = 'account.move.line'
 
-    #skip_sync = fields.Boolean(string='Skip Sync', default=False, copy=False)
 
     @api.model
     def create(self, vals):
@@ -69,10 +68,18 @@ class AccountMoveLineListener(Component):
             print("Response")
             print(rest_response)
             if rest_response.status_code == 201:
-                record.write({'sf_id':rest_response.json()['id']})
+                record.write({'sf_id':rest_response.json()['id'],
+                                'sf_integration_status': 'success',
+                                'sf_integration_datetime': datetime.now()
+                            })
             else:
                 _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
-    
+                record.write({'sf_integration_status': 'failed',
+                            'sf_integration_datetime': datetime.now(),
+                            'sf_integration_error': rest_response.json()
+                            })
+
+
     @skip_if(lambda self, record, fields: not record or not fields)
     def on_account_move_line_update(self, record, fields):
         print("Fields")
@@ -85,9 +92,15 @@ class AccountMoveLineListener(Component):
                     print("Response")
                     print(rest_response)
                     if rest_response.status_code == 204:
-                        line.write({'sf_id':rest_response.json()['id']})
+                        line.write({'sf_integration_status': 'success',
+                                    'sf_integration_datetime': datetime.now()
+                                    })
                     else:
                         _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
+                        line.write({'sf_integration_status': 'failed',
+                                    'sf_integration_datetime': datetime.now(),
+                                    'sf_integration_error': rest_response.json()
+                                    })
 
     @skip_if(lambda self, record, fields: not record or not fields)
     def on_account_move_line_delete(self,record, record_id):
@@ -101,3 +114,8 @@ class AccountMoveLineListener(Component):
                 print(rest_response)
                 if rest_response.status_code != 204:
                     _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
+                    record.write({
+                        'sf_integration_status': 'failed',
+                        'sf_integration_datetime': datetime.now(),
+                        'sf_integration_error': rest_response.json()
+                        })

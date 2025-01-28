@@ -68,10 +68,17 @@ class SalesforcePartnerListener(Component):
             rest_response = self.env['salesforce.rest.config'].post(rest_request['url'],rest_request['headers'],rest_request['fields'])
             print("Response")
             print(rest_response)
-            if rest_response.status_code != 201:
-                _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
+            if rest_response.status_code == 201:
+                record.write({'sf_id':rest_response.json()['id'],
+                            'sf_integration_status': 'success',
+                            'sf_integration_datetime': date.today()
+                            })
             else:
-                record.write({'sf_id':rest_response.json()['id']})
+                _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
+                record.write({'sf_integration_status': 'failed',
+                            'sf_integration_datetime': date.today(),
+                            'sf_integration_error': rest_response.json()
+                            })
 
     @skip_if(lambda self, record, fields: not record or not fields)
     def on_res_partner_update(self, record, fields):
@@ -83,8 +90,16 @@ class SalesforcePartnerListener(Component):
                 rest_response = self.env['salesforce.rest.config'].patch(rest_request['url'],rest_request['headers'],rest_request['fields'])
                 print("Response")
                 print(rest_response)
-                if rest_response.status_code != 204:
+                if rest_response.status_code == 204:
+                    record.write({'sf_integration_status': 'success',
+                                'sf_integration_datetime': date.today()
+                                })
+                else:
                     _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
+                    record.write({'sf_integration_status': 'failed',
+                                'sf_integration_datetime': date.today(),
+                                'sf_integration_error': rest_response.json()
+                                })
 
     @skip_if(lambda self: not self)
     def on_res_partner_delete(self,record,record_id):
@@ -98,3 +113,7 @@ class SalesforcePartnerListener(Component):
                 print(rest_response)
                 if rest_response.status_code != 204:
                     _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
+                    record.write({'sf_integration_status': 'failed',
+                                'sf_integration_datetime': date.today(),
+                                'sf_integration_error': rest_response.json()
+                                })
