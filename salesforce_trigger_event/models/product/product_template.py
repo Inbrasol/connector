@@ -62,6 +62,7 @@ class ProductProductListener(Component):
         if record.sf_id in [False, None, '']:
             rest_request = self.env['salesforce.rest.config'].build_rest_request_create(record, fields, 'product_template_create')
             if rest_request:
+                context_with_skip_sync = dict(self.env.context, skip_sync=True)
                 rest_response = self.env['salesforce.rest.config'].post(rest_request['url'],rest_request['headers'],rest_request['fields'])
                 print("Response")
                 print(rest_response)
@@ -83,21 +84,22 @@ class ProductProductListener(Component):
                                     'sf_integration_status': 'success',
                                     'sf_integration_datetime': datetime.now()
                                 }
-                                record.write(pricebook_entry_vals)
+                                record.with_context(context_with_skip_sync).write(pricebook_entry_vals)
                         else:
-                            record.write({
-                                        'sf_id':sf_id, 
-                                        'sf_integration_status': 'failed',
-                                        'sf_integration_datetime': datetime.now()
-                                        })
+                            record.with_context(context_with_skip_sync).write({
+                                'sf_id': sf_id,
+                                'sf_integration_status': 'failed',
+                                'sf_integration_datetime': datetime.now()
+                            })
                     else:
-                        record.write({
-                            'sf_id':sf_id,
+                        record.with_context(context_with_skip_sync).write({
+                            'sf_id': sf_id,
                             'sf_integration_status': 'failed',
-                            'sf_integration_datetime': datetime.now()})
+                            'sf_integration_datetime': datetime.now()
+                        })
                 else:
                     _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
-                    record.write({
+                    record.with_context(context_with_skip_sync).write({
                         'sf_integration_status': 'failed',
                         'sf_integration_datetime': datetime.now(),
                         'sf_integration_error': rest_response.json()
@@ -112,6 +114,7 @@ class ProductProductListener(Component):
             rest_request = self.env['salesforce.rest.config'].build_rest_request_update(record, fields, 'product_template_update')
             if rest_request:
                 rest_response = None
+                context_with_skip_sync = dict(self.env.context, skip_sync=True)
                 match rest_request['method']:
                     case 'PATCH':
                         rest_response = self.env['salesforce.rest.config'].patch(rest_request['url'],rest_request['headers'],rest_request['fields'])
@@ -121,13 +124,13 @@ class ProductProductListener(Component):
                 print(rest_response)
 
                 if rest_response and rest_response.status_code == 204:
-                    record.write({
+                    record.with_context(context_with_skip_sync).write({
                         'sf_integration_status': 'success',
                         'sf_integration_datetime': datetime.now()
                     })
                 else:
                     _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
-                    record.write({
+                    record.with_context(context_with_skip_sync).write({
                         'sf_integration_status': 'failed',
                         'sf_integration_datetime': datetime.now(),
                         'sf_integration_error': rest_response.json()
@@ -140,12 +143,13 @@ class ProductProductListener(Component):
         if record.sf_id not in [False, None, '']:
             rest_request = self.env['salesforce.rest.config'].build_rest_request_delete(record_id,'product_template_delete')
             if rest_request:
+                context_with_skip_sync = dict(self.env.context, skip_sync=True)
                 rest_response = self.env['salesforce.rest.config'].delete(rest_request['url'],rest_request['headers'])
                 print("Response")
                 print(rest_response)
                 if rest_response.status_code != 204:
                     _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
-                    record.write({
+                    record.with_context(context_with_skip_sync).write({
                         'sf_integration_status': 'failed',
                         'sf_integration_datetime': datetime.now(),
                         'sf_integration_error': rest_response.json()

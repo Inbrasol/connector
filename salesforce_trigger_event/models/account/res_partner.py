@@ -11,9 +11,6 @@ from datetime import date
 
 class ResPartner(models.Model):
     _inherit = 'res.partner'
-    
-    #skip_sync = fields.Boolean(string='Skip Sync', default=False, copy=False)
-
 
     @api.model
     def create(self, vals):
@@ -63,22 +60,25 @@ class SalesforcePartnerListener(Component):
     def on_res_partner_create(self, record, fields):
         print("Fields")
         print(fields)
+        context_with_skip_sync = dict(self.env.context, skip_sync=True)
         rest_request = self.env['salesforce.rest.config'].build_rest_request_create(record,fields,'res_partner_create')
         if rest_request:
             rest_response = self.env['salesforce.rest.config'].post(rest_request['url'],rest_request['headers'],rest_request['fields'])
             print("Response")
             print(rest_response)
             if rest_response.status_code == 201:
-                record.write({'sf_id':rest_response.json()['id'],
-                            'sf_integration_status': 'success',
-                            'sf_integration_datetime': date.today()
-                            })
+                record.with_context(context_with_skip_sync).write({
+                    'sf_id': rest_response.json()['id'],
+                    'sf_integration_status': 'success',
+                    'sf_integration_datetime': date.today()
+                })
             else:
                 _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
-                record.write({'sf_integration_status': 'failed',
-                            'sf_integration_datetime': date.today(),
-                            'sf_integration_error': rest_response.json()
-                            })
+                record.with_context(context_with_skip_sync).write({
+                    'sf_integration_status': 'failed',
+                    'sf_integration_datetime': date.today(),
+                    'sf_integration_error': rest_response.json()
+                })
 
     @skip_if(lambda self, record, fields: not record or not fields)
     def on_res_partner_update(self, record, fields):
@@ -90,16 +90,20 @@ class SalesforcePartnerListener(Component):
                 rest_response = self.env['salesforce.rest.config'].patch(rest_request['url'],rest_request['headers'],rest_request['fields'])
                 print("Response")
                 print(rest_response)
+                context_with_skip_sync = dict(self.env.context, skip_sync=True)
                 if rest_response.status_code == 204:
-                    record.write({'sf_integration_status': 'success',
-                                'sf_integration_datetime': date.today()
-                                })
+                    record.with_context(context_with_skip_sync).write({
+                        'sf_integration_status': 'success',
+                        'sf_integration_datetime': date.today()
+                    })
                 else:
                     _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
-                    record.write({'sf_integration_status': 'failed',
-                                'sf_integration_datetime': date.today(),
-                                'sf_integration_error': rest_response.json()
-                                })
+                    context_with_skip_sync = dict(self.env.context, skip_sync=True)
+                    record.with_context(context_with_skip_sync).write({
+                        'sf_integration_status': 'failed',
+                        'sf_integration_datetime': date.today(),
+                        'sf_integration_error': rest_response.json()
+                    })
 
     @skip_if(lambda self: not self)
     def on_res_partner_delete(self,record,record_id):
@@ -111,9 +115,11 @@ class SalesforcePartnerListener(Component):
                 rest_response = self.env['salesforce.rest.config'].delete(rest_request['url'],rest_request['headers'])
                 print("Response")
                 print(rest_response)
+                context_with_skip_sync = dict(self.env.context, skip_sync=True)
                 if rest_response.status_code != 204:
                     _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
-                    record.write({'sf_integration_status': 'failed',
-                                'sf_integration_datetime': date.today(),
-                                'sf_integration_error': rest_response.json()
-                                })
+                    record.with_context(context_with_skip_sync).write({
+                        'sf_integration_status': 'failed',
+                        'sf_integration_datetime': date.today(),
+                        'sf_integration_error': rest_response.json()
+                    })

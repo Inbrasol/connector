@@ -66,6 +66,7 @@ class SaleOrderListener(Component):
         print(fields)
         rest_request = self.env['salesforce.rest.config'].build_rest_request_create(record, fields, 'sale_order_create')
         if rest_request:
+            context_with_skip_sync = dict(self.env.context, skip_sync=True)
             rest_response = self.env['salesforce.rest.config'].post(rest_request['url'],rest_request['headers'],rest_request['fields'])
             print("Response")
             print(rest_response)
@@ -75,33 +76,33 @@ class SaleOrderListener(Component):
                         if record_response['httpStatusCode'] in [200, 201] and record_response['referenceId'] in  rest_request['map_ref_fields'].keys():
                             map_field = rest_request['map_ref_fields'][record_response['referenceId']]
                             record_to_update = self.env[map_field['model']].browse(map_field['id'])
-                            record_to_update.write({
+                            record_to_update.with_context(context_with_skip_sync).write({
                                 'sf_id': record_response['body']['id'],
                                 'sf_integration_status': 'success',
                                 'sf_integration_datetime': datetime.now()
-                                })
+                            })
                 else:
                     _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
-                    record.write({
+                    record.with_context(context_with_skip_sync).write({
                         'sf_integration_status': 'failed',
                         'sf_integration_datetime': datetime.now(),
                         'sf_integration_error': rest_response.json()
-                        })
+                    })
             
             elif rest_request['type'] == 'single':
                 if rest_response.status_code in [200, 201]:
-                    record.write({
+                    record.with_context(context_with_skip_sync).write({
                         'sf_id': rest_response.json()['id'],
                         'sf_integration_status': 'success',
                         'sf_integration_datetime': datetime.now()
-                        })
+                    })
                 else:
                     _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
-                    record.write({
+                    record.with_context(context_with_skip_sync).write({
                         'sf_integration_status': 'failed',
                         'sf_integration_datetime': datetime.now(),
                         'sf_integration_error': rest_response.json()
-                        })
+                    })
     
     @skip_if(lambda self, record, fields: not record or not fields)
     def on_sale_order_update(self, record, fields):
@@ -111,6 +112,7 @@ class SaleOrderListener(Component):
         print(record)
         if record.sf_id not in [False, None, '']:
             rest_request = self.env['salesforce.rest.config'].build_rest_request_update(record, fields, 'sale_order_update')
+            context_with_skip_sync = dict(self.env.context, skip_sync=True)
             if rest_request:
                 rest_response = None
                 match rest_request['method']:
@@ -121,13 +123,13 @@ class SaleOrderListener(Component):
                 print("Response")
                 print(rest_response)
                 if rest_response and rest_response.status_code == 204:
-                    record.write({
+                    record.with_context(context_with_skip_sync).write({
                         'sf_integration_status': 'success',
                         'sf_integration_datetime': datetime.now()
                     })
                 else:
                     _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
-                    record.write({
+                    record.with_context(context_with_skip_sync).write({
                         'sf_integration_status': 'failed',
                         'sf_integration_datetime': datetime.now(),
                         'sf_integration_error': rest_response.json()
@@ -141,12 +143,13 @@ class SaleOrderListener(Component):
         if sale_order.sf_id not in [False,None, '']:
             rest_request = self.env['salesforce.rest.config'].build_rest_request_delete(record.sf_id,'crm_lead_delete')
             if rest_request:
+                context_with_skip_sync = dict(self.env.context, skip_sync=True)
                 rest_response = self.env['salesforce.rest.config'].delete(rest_request['url'],rest_request['headers'])
                 print("Response")
                 print(rest_response)
                 if rest_response.status_code != 204:
                     _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
-                    record.write({
+                    record.with_context(context_with_skip_sync).write({
                         'sf_integration_status': 'failed',
                         'sf_integration_datetime': datetime.now(),
                         'sf_integration_error': rest_response.json()

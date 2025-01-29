@@ -62,6 +62,7 @@ class AccountMoveListener(Component):
         print(fields)
         rest_request = self.env['salesforce.rest.config'].build_rest_request_create(record, fields, 'account_move_create')
         if rest_request:
+            context_with_skip_sync = dict(self.env.context, skip_sync=True)
             rest_response = self.env['salesforce.rest.config'].post(rest_request['url'],rest_request['headers'],rest_request['fields'])
             print("Response")
             print(rest_response)
@@ -73,13 +74,14 @@ class AccountMoveListener(Component):
                         if record_response['httpStatusCode'] in [200, 201] and record_response['referenceId'] in  rest_request['map_ref_fields'].keys():
                             map_field = rest_request['map_ref_fields'][record_response['referenceId']]
                             record_to_update = self.env[map_field['model']].browse(map_field['id'])
-                            record_to_update.write({'sf_id': record_response['body']['id'],
-                                                    'sf_integration_status': 'success',
-                                                    'sf_integration_datetime': datetime.now()
-                                                    })
+                            record_to_update.with_context(context_with_skip_sync).write({
+                                'sf_id': record_response['body']['id'],
+                                'sf_integration_status': 'success',
+                                'sf_integration_datetime': datetime.now()
+                            })
                 else:
                     _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
-                    record.write({
+                    record.with_context(context_with_skip_sync).write({
                         'sf_integration_status': 'failed',
                         'sf_integration_datetime': datetime.now(),
                         'sf_integration_error': rest_response.json()
@@ -87,13 +89,14 @@ class AccountMoveListener(Component):
                     
             elif rest_request['type'] == 'single':
                 if rest_response.status_code in [200, 201]:
-                    record.write({
+                    record.with_context(context_with_skip_sync).write({
                         'sf_id': rest_response.json()['id'],
                         'sf_integration_status': 'success',
-                        'sf_integration_datetime': datetime.now()})
+                        'sf_integration_datetime': datetime.now()
+                    })
                 else:
                     _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
-                    record.write({
+                    record.with_context(context_with_skip_sync).write({
                         'sf_integration_status': 'failed',
                         'sf_integration_datetime': datetime.now(),
                         'sf_integration_error': rest_response.json()
@@ -106,6 +109,7 @@ class AccountMoveListener(Component):
         if record.sf_id not in [False, None, '']:
             rest_request = self.env['salesforce.rest.config'].build_rest_request_update(record, fields, 'account_move_update')
             if rest_request:
+                context_with_skip_sync = dict(self.env.context, skip_sync=True)
                 rest_response = None
                 match rest_request['method']:
                     case 'PATCH':
@@ -113,17 +117,17 @@ class AccountMoveListener(Component):
                     case 'PUT':
                         rest_response = self.env['salesforce.rest.config'].put(rest_request['url'],rest_request['headers'],rest_request['fields'])
                 if rest_response and rest_response.status_code == 204:
-                    record.write({
+                    record.with_context(context_with_skip_sync).write({
                         'sf_integration_status': 'success',
                         'sf_integration_datetime': datetime.now()
                     })
                 else:
                     _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
-                    record.write({
+                    record.with_context(context_with_skip_sync).write({
                         'sf_integration_status': 'failed',
                         'sf_integration_datetime': datetime.now(),
                         'sf_integration_error': rest_response.json()
-                        })
+                    })
 
     @skip_if(lambda self: not self)
     def on_account_move_delete(self,record, record_id):
@@ -132,13 +136,14 @@ class AccountMoveListener(Component):
         if record.sf_id not in [False, None, '']:
             rest_request = self.env['salesforce.rest.config'].build_rest_request_delete(record.sf_id,'account_move_delete')
             if rest_request:
+                context_with_skip_sync = dict(self.env.context, skip_sync=True)
                 rest_response = self.env['salesforce.rest.config'].delete(rest_request['url'],rest_request['headers'])
                 print("Response")
                 print(rest_response)
                 if rest_response.status_code != 204:
                     _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
-                    record.write({
+                    record.with_context(context_with_skip_sync).write({
                         'sf_integration_status': 'failed',
                         'sf_integration_datetime': datetime.now(),
                         'sf_integration_error': rest_response.json()
-                        })
+                    })
