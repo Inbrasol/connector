@@ -38,11 +38,7 @@ class SalesforceBackend(models.Model):
         }
 
         response = requests.post(url, data=payload, headers=headers)
-        print("Authenticate")
-        print(response.status_code)
-        print(response.text)
         if response.status_code == 200:
-            token_data = response.json()
-            return token_data
+            return response.json()
         else:
             raise UserError (_(f"Failed to authenticate with Salesforce: {response.text}"))

@@ -76,126 +76,77 @@ class SalesforceRestConfig(models.Model):
 
     def build_rest_fields(self, sf_config, record, fields):
         fields_to_rest = {}
+        date_mappings = {
+            'YESTERDAY': lambda: date.today() - timedelta(days=1),
+            'TODAY': lambda: date.today(),
+            'TOMORROW': lambda: date.today() + timedelta(days=1),
+            'LAST_WEEK': lambda: date.today() - timedelta(days=date.today().weekday() + 7),
+            'THIS_WEEK': lambda: date.today() - timedelta(days=date.today().weekday()),
+            'NEXT_WEEK': lambda: date.today() + timedelta(days=6 - date.today().weekday() + 7),
+            'LAST_MONTH': lambda: date.today().replace(day=1) - timedelta(days=1),
+            'THIS_MONTH': lambda: date.today().replace(day=1),
+            'NEXT_MONTH': lambda: date.today().replace(day=28) + timedelta(days=4),
+            'LAST_90_DAYS': lambda: date.today() - timedelta(days=90),
+            'NEXT_90_DAYS': lambda: date.today() + timedelta(days=90),
+        }
+
+        datetime_mappings = {
+            'YESTERDAY': lambda: (date.today() - timedelta(days=1)).strftime('%Y-%m-%dT%H:%M:%SZ'),
+            'TODAY': lambda: date.today().strftime('%Y-%m-%dT%H:%M:%SZ'),
+            'TOMORROW': lambda: (date.today() + timedelta(days=1)).strftime('%Y-%m-%dT%H:%M:%SZ'),
+            'LAST_WEEK': lambda: (date.today() - timedelta(days=date.today().weekday() + 7)).strftime('%Y-%m-%dT%H:%M:%SZ'),
+            'THIS_WEEK': lambda: (date.today() - timedelta(days=date.today().weekday())).strftime('%Y-%m-%dT%H:%M:%SZ'),
+            'NEXT_WEEK': lambda: (date.today() + timedelta(days=6 - date.today().weekday() + 7)).strftime('%Y-%m-%dT%H:%M:%SZ'),
+            'LAST_MONTH': lambda: (date.today().replace(day=1) - timedelta(days=1)).strftime('%Y-%m-%dT%H:%M:%SZ'),
+            'THIS_MONTH': lambda: date.today().replace(day=1).strftime('%Y-%m-%dT%H:%M:%SZ'),
+            'NEXT_MONTH': lambda: (date.today().replace(day=28) + timedelta(days=4)).strftime('%Y-%m-%dT%H:%M:%SZ'),
+            'LAST_90_DAYS': lambda: (date.today() - timedelta(days=90)).strftime('%Y-%m-%dT%H:%M:%SZ'),
+            'NEXT_90_DAYS': lambda: (date.today() + timedelta(days=90)).strftime('%Y-%m-%dT%H:%M:%SZ'),
+        }
+
+        def get_default_value(field):
+            if field.type == 'date':
+                return date_mappings.get(field.default_value, lambda: date.today())()
+            elif field.type == 'datetime':
+                return datetime_mappings.get(field.default_value, lambda: date.today().strftime('%Y-%m-%dT%H:%M:%SZ'))()
+        
+            return field.default_value
+        
         for field in sf_config.rest_fields.filtered(lambda f: f.active):
             if field.default_value not in [None, '', False]:
-                match field.type:
-                    case 'string' | 'integer' | 'float' | 'boolean' | 'related':
-                        fields_to_rest.update({field.salesforce_field: field.default_value})
-                    case 'date':
-                        match field.default_value:
-                            case 'YESTERDAY':
-                                fields_to_rest.update({field.salesforce_field: date.today() - timedelta(days=1)})
-                            case 'TODAY':
-                                fields_to_rest.update({field.salesforce_field: date.today()})
-                            case 'TOMORROW':
-                                fields_to_rest.update({field.salesforce_field: date.today() + timedelta(days=1)})
-                            case 'LAST_WEEK':
-                                fields_to_rest.update({field.salesforce_field: date.today() - timedelta(days=date.today().weekday() + 7)})
-                            case 'THIS_WEEK':
-                                fields_to_rest.update({field.salesforce_field: date.today() - timedelta(days=date.today().weekday())})
-                            case 'NEXT_WEEK':
-                                fields_to_rest.update({field.salesforce_field: date.today() + timedelta(days=6 - date.today().weekday() + 7)})
-                            case 'LAST_MONTH':
-                                fields_to_rest.update({field.salesforce_field: date.today().replace(day=1) - timedelta(days=1)})
-                            case 'THIS_MONTH':
-                                fields_to_rest.update({field.salesforce_field: date.today().replace(day=1)})
-                            case 'NEXT_MONTH':
-                                fields_to_rest.update({field.salesforce_field: date.today().replace(day=28) + timedelta(days=4)})
-                            case 'LAST_90_DAYS':
-                                fields_to_rest.update({field.salesforce_field: date.today() - timedelta(days=90)})
-                            case 'NEXT_90_DAYS':
-                                fields_to_rest.update({field.salesforce_field: date.today() + timedelta(days=90)})
-                            case 'LAST_N_DAYS:n':
-                                fields_to_rest.update({field.salesforce_field: date.today() - timedelta(days=int(field.default_value.split(':')[1]))})
-                            case 'NEXT_N_DAYS:n':
-                                fields_to_rest.update({field.salesforce_field: date.today() + timedelta(days=int(field.default_value.split(':')[1]))})
-                            case _:
-                                fields_to_rest.update({field.salesforce_field: date.today()})
-                    case 'datetime':
-                        match field.default_value:
-                            case 'YESTERDAY':
-                                fields_to_rest.update({field.salesforce_field: date.now() - timedelta(days=1)})
-                            case 'TODAY':
-                                fields_to_rest.update({field.salesforce_field: date.now()})
-                            case 'TOMORROW':
-                                fields_to_rest.update({field.salesforce_field: date.now() + timedelta(days=1)})
-                            case 'LAST_WEEK':
-                                fields_to_rest.update({field.salesforce_field: date.now() - timedelta(days=date.now().weekday() + 7)})
-                            case 'THIS_WEEK':
-                                fields_to_rest.update({field.salesforce_field: date.now() - timedelta(days=date.now().weekday())})
-                            case 'NEXT_WEEK':
-                                fields_to_rest.update({field.salesforce_field: date.now() + timedelta(days=6 - date.now().weekday() + 7)})
-                            case 'LAST_MONTH':
-                                fields_to_rest.update({field.salesforce_field: date.now().replace(day=1) - timedelta(days=1)})
-                            case 'THIS_MONTH':
-                                fields_to_rest.update({field.salesforce_field: date.now().replace(day=1)})
-                            case 'NEXT_MONTH':
-                                fields_to_rest.update({field.salesforce_field: date.now().replace(day=28) + timedelta(days=4)})
-                            case 'LAST_90_DAYS':
-                                fields_to_rest.update({field.salesforce_field: date.now() - timedelta(days=90)})
-                            case 'NEXT_90_DAYS':
-                                fields_to_rest.update({field.salesforce_field: date.now() + timedelta(days=90)})
-                            case 'LAST_N_DAYS:n':
-                                fields_to_rest.update({field.salesforce_field: date.now() - timedelta(days=int(field.default_value.split(':')[1]))})
-                            case 'NEXT_N_DAYS:n':
-                                fields_to_rest.update({field.salesforce_field: date.now() + timedelta(days=int(field.default_value.split(':')[1]))})
-                            case _:
-                                fields_to_rest.update({field.salesforce_field: date.now()})
-                
+                fields_to_rest[field.salesforce_field] = get_default_value(field)
             elif field.odoo_field_id.name in fields:
-                value = getattr(record, field.odoo_field_id.name)[field.odoo_related_field_id.name] if field.type == 'related' else getattr(record, field.odoo_field_id.name)
-                if value not in [None, '', False] :
-                    match field.type:
-                        case 'string' | 'integer' | 'float' | 'boolean':
-                            fields_to_rest.update({field.salesforce_field : value})
-                        case 'date' | 'datetime':
-                            fields_to_rest.update({field.salesforce_field: getattr(record,field.odoo_field_id.name)})
-                        case 'related':
-                            fields_to_rest.update({field.salesforce_field: getattr(record,field.odoo_field_id.name)[field.odoo_related_field_id.name]})
-                        case _:
-                            fields_to_rest.update({field.salesforce_field: getattr(record,field.odoo_field_id.name)})
-                            
-            elif field.type == 'related' and getattr(record, field.odoo_field_id.name) not in [None, '', False]:
-                fields_to_rest.update({field.salesforce_field: getattr(record, field.odoo_field_id.name)[field.odoo_related_field_id.name]})
-
+                value = getattr(record, field.odoo_field_id.name)
+                if field.type == 'related' and value:
+                    value = value[field.odoo_related_field_id.name]
+                if value not in [None, '', False]:
+                    fields_to_rest[field.salesforce_field] = value
             elif field.is_always_update:
-                fields_to_rest.update({field.salesforce_field : getattr(record,field.odoo_field_id.name)})
+                fields_to_rest[field.salesforce_field] = getattr(record, field.odoo_field_id.name)
 
         for record_type in sf_config.record_types.filtered(lambda r: r.active):
-            match record_type.type:
-                case 'string':
-                    if getattr(record, record_type.odoo_field_id.name) == record_type.odoo_field_value:
-                        fields_to_rest.update({'RecordTypeId': record_type.record_type_id})
-                case 'related':
-                    if (getattr(record, record_type.odoo_field_id.name) not in [None, '', False]) and (getattr(record, record_type.odoo_field_id.name)[record_type.odoo_related_field_id.name] == record_type.odoo_field_value):
-                        fields_to_rest.update({'RecordTypeId': record_type.record_type_id})
+            related_value = getattr(record, record_type.odoo_field_id.name)
+            if (record_type.type == 'string' and related_value == record_type.odoo_field_value) or \
+               (record_type.type == 'related' and related_value and related_value[record_type.odoo_related_field_id.name] == record_type.odoo_field_value):
+                fields_to_rest['RecordTypeId'] = record_type.record_type_id
 
-        print("Fields to Rest")
-        print(fields_to_rest)
         return fields_to_rest
 
     #   REST RECORD
     def build_rest_single_request_create(self, salesforce_config, record, fields):
         backend = self.env["salesforce.backend"].search([('id', '=', salesforce_config.salesforce_backend_id.id)], limit=1)
         authenticate = backend.authenticate()
-        print("Authenticate")
-        print(authenticate)
-        if authenticate['access_token'] is not None:
-            # Your custom logic for update event
+        if authenticate['access_token']:
             endpoint = salesforce_config.endpoint
             version = salesforce_config.version
-            sobject_api_name = salesforce_config.sobject_api_name  # Assuming the SObject API name is Opportunity
+            sobject_api_name = salesforce_config.sobject_api_name
             url = f"{endpoint}/services/data/v{version}/sobjects/{sobject_api_name}"
             headers = {
                 'Content-Type': 'application/json',
                 'Authorization': f"Bearer {authenticate['access_token']}"
             }
 
-            fields = self.build_rest_fields(salesforce_config,record,fields)
-            print("Fields")
-            print(fields)
-            print("headers")
-            print(headers)
+            fields = self.build_rest_fields(salesforce_config, record, fields)
 
             return {
                 "url": url,
@@ -208,10 +159,7 @@ class SalesforceRestConfig(models.Model):
     def build_rest_single_request_update(self, salesforce_config, record, fields):
         backend = self.env["salesforce.backend"].search([('id', '=', salesforce_config.salesforce_backend_id.id)], limit=1)
         authenticate = backend.authenticate()
-        print("Authenticate")
-        print(authenticate)
-        if authenticate['access_token'] is not None:
-            # Your custom logic for update event
+        if authenticate['access_token']:
             endpoint = salesforce_config.endpoint
             version = salesforce_config.version
             sobject_api_name = salesforce_config.sobject_api_name  # Assuming the SObject API name is Opportunity
@@ -222,10 +170,6 @@ class SalesforceRestConfig(models.Model):
             }
             
             fields = self.build_rest_fields(salesforce_config,record, fields)
-            print("Fields")
-            print(fields)
-            print("headers")
-            print(headers)
 
             return {
                 "url": url,
@@ -238,10 +182,7 @@ class SalesforceRestConfig(models.Model):
     def build_rest_single_request_delete(self, salesforce_config, record_id):
         backend = self.env["salesforce.backend"].search([('id', '=', salesforce_config.salesforce_backend_id.id)], limit=1)
         authenticate = backend.authenticate()
-        print("Authenticate")
-        print(authenticate)
-        if authenticate['access_token'] is not None:
-            # Your custom logic for update event
+        if authenticate['access_token']:
             endpoint = salesforce_config.endpoint
             version = salesforce_config.version
             sobject_api_name = salesforce_config.sobject_api_name  # Assuming the SObject API name is Opportunity
@@ -250,8 +191,6 @@ class SalesforceRestConfig(models.Model):
                 'Content-Type': 'application/json',
                 'Authorization': f"Bearer {authenticate['access_token']}"
             }
-            print("headers")
-            print(headers)
 
             return {
                 "url": url,
@@ -260,6 +199,7 @@ class SalesforceRestConfig(models.Model):
                 'type': salesforce_config.type
             }
         
+    
     #  COMPOSITE REST API
     def build_rest_composite_fields(self, salesforce_config, record , fields):
         request_fields = {"allOrNone" : True, 'compositeRequest': []}
@@ -287,8 +227,7 @@ class SalesforceRestConfig(models.Model):
                 "referenceId": f"New{salesforce_config.line_rest_config_id.sobject_api_name}{len(map_ref_fields)}",
                 "body": self.build_rest_fields(salesforce_config.line_rest_config_id, line, line._fields)
             })
-        print("Composite Request")
-        print(composite_request)
+
         request_fields['compositeRequest'] = composite_request
         return {
             'fields': request_fields,
@@ -298,10 +237,7 @@ class SalesforceRestConfig(models.Model):
     def build_rest_composite_request_create(self, salesforce_config, record, fields):
         backend = self.env["salesforce.backend"].search([('id', '=', salesforce_config.salesforce_backend_id.id)], limit=1)
         authenticate = backend.authenticate()
-        print("Authenticate")
-        print(authenticate)
-        if authenticate['access_token'] is not None:
-            # Your custom logic for update event
+        if authenticate['access_token']:
             endpoint = salesforce_config.endpoint
             version = salesforce_config.version
             url = f"{endpoint}/services/data/v{version}/composite/"
@@ -310,10 +246,7 @@ class SalesforceRestConfig(models.Model):
                 'Authorization': f"Bearer {authenticate['access_token']}"
             }
             fields = self.build_rest_composite_fields(salesforce_config,record,fields)
-            print("Fields Composite")
-            print(fields)
-            print("headers")
-            print(headers)
+
             return {
                 "url": url,
                 "headers": headers,
@@ -326,10 +259,7 @@ class SalesforceRestConfig(models.Model):
     def build_rest_composite_request_update(self, salesforce_config, record, fields):
         backend = self.env["salesforce.backend"].search([('id', '=', salesforce_config.salesforce_backend_id.id)], limit=1)
         authenticate = backend.authenticate()
-        print("Authenticate")
-        print(authenticate)
-        if authenticate['access_token'] is not None:
-            # Your custom logic for update event
+        if authenticate['access_token']:
             endpoint = salesforce_config.endpoint
             version = salesforce_config.version
             url = f"{endpoint}/services/data/v{version}/composite/"
@@ -338,10 +268,7 @@ class SalesforceRestConfig(models.Model):
                 'Authorization': f"Bearer {authenticate['access_token']}"
             }
             fields = self.build_rest_composite_fields(salesforce_config,record,fields)
-            print("Fields Composite")
-            print(fields)
-            print("headers")
-            print(headers)
+
             return {
                 "url": url,
                 "headers": headers,
@@ -354,10 +281,7 @@ class SalesforceRestConfig(models.Model):
     def build_rest_composite_request_delete(self, salesforce_config, record_id):
         backend = self.env["salesforce.backend"].search([('id', '=', salesforce_config.salesforce_backend_id.id)], limit=1)
         authenticate = backend.authenticate()
-        print("Authenticate")
-        print(authenticate)
-        if authenticate['access_token'] is not None:
-            # Your custom logic for update event
+        if authenticate['access_token']:
             endpoint = salesforce_config.endpoint
             version = salesforce_config.version
             sobject_api_name = salesforce_config.sobject_api_name  # Assuming the SObject API name is Opportunity
@@ -366,8 +290,185 @@ class SalesforceRestConfig(models.Model):
                 'Content-Type': 'application/json',
                 'Authorization': f"Bearer {authenticate['access_token']}"
             }
-            print("headers")
-            print(headers)
+
+            return {
+                "url": url,
+                "headers": headers,
+                'method': salesforce_config.method,
+                'type': salesforce_config.type
+            }
+
+    #  COMPOSITE REST BATCH
+    def build_rest_composite_batch_fields(self, salesforce_config, records, fields):
+        batch_request = []
+        map_ref_fields = {}
+        for record in records:
+            map_ref_fields.update({f"New{salesforce_config.sobject_api_name}{record.id}": {'id': record.id, 'model': salesforce_config.odoo_model_id.model}})
+            fields = self.build_rest_fields(salesforce_config, record, fields)
+            batch_request.append({
+                "method": salesforce_config.method,
+                "url": f"/services/data/v{salesforce_config.version}/sobjects/{salesforce_config.sobject_api_name}",
+                "referenceId": f"New{salesforce_config.sobject_api_name}{record.id}",
+                "body": fields
+            })
+
+        return {
+            'batchRequest': batch_request,
+            'map_ref_fields': map_ref_fields
+        }
+
+    def build_rest_composite_batch_request_create(self, salesforce_config, records, fields):
+        backend = self.env["salesforce.backend"].search([('id', '=', salesforce_config.salesforce_backend_id.id)], limit=1)
+        authenticate = backend.authenticate()
+        if authenticate['access_token']:
+            endpoint = salesforce_config.endpoint
+            version = salesforce_config.version
+            url = f"{endpoint}/services/data/v{version}/composite/batch/"
+            headers = {
+                'Content-Type': 'application/json',
+                'Authorization': f"Bearer {authenticate['access_token']}"
+            }
+            fields = self.build_rest_composite_batch_fields(salesforce_config, records, fields)
+
+            return {
+                "url": url,
+                "headers": headers,
+                'fields': json.dumps(fields['batchRequest'], default=self.json_serial),
+                'map_ref_fields': fields['map_ref_fields'],
+                'method': salesforce_config.method,
+                'type': salesforce_config.type
+            }
+
+    def build_rest_composite_batch_request_update(self, salesforce_config, records, fields):
+        backend = self.env["salesforce.backend"].search([('id', '=', salesforce_config.salesforce_backend_id.id)], limit=1)
+        authenticate = backend.authenticate()
+        if authenticate['access_token']:
+            endpoint = salesforce_config.endpoint
+            version = salesforce_config.version
+            url = f"{endpoint}/services/data/v{version}/composite/batch/"
+            headers = {
+                'Content-Type': 'application/json',
+                'Authorization': f"Bearer {authenticate['access_token']}"
+            }
+            fields = self.build_rest_composite_batch_fields(salesforce_config, records, fields)
+
+            return {
+                "url": url,
+                "headers": headers,
+                'fields': json.dumps(fields['batchRequest'], default=self.json_serial),
+                'map_ref_fields': fields['map_ref_fields'],
+                'method': salesforce_config.method,
+                'type': salesforce_config.type
+            }
+    
+
+    def build_rest_composite_batch_request_delete(self, salesforce_config, record_ids):
+        backend = self.env["salesforce.backend"].search([('id', '=', salesforce_config.salesforce_backend_id.id)], limit=1)
+        authenticate = backend.authenticate()
+        if authenticate['access_token']:
+            endpoint = salesforce_config.endpoint
+            version = salesforce_config.version
+            sobject_api_name = salesforce_config.sobject_api_name
+            url = f"{endpoint}/services/data/v{version}/composite/tree/{sobject_api_name}"
+            headers = {
+                'Content-Type': 'application/json',
+                'Authorization': f"Bearer {authenticate['access_token']}"
+            }
+
+            return {
+                "url": url,
+                "headers": headers,
+                'method': salesforce_config.method,
+                'type': salesforce_config.type
+            }
+
+    #   COMPOSITE REST TREE
+    def build_rest_composite_tree_fields(self, salesforce_config, record, fields):
+        tree_request = {
+            "records": []
+        }
+        map_ref_fields = {}
+        map_ref_fields.update({f"New{salesforce_config.sobject_api_name}": {'id': record.id, 'model': salesforce_config.odoo_model_id.model}})
+        fields = self.build_rest_fields(salesforce_config, record, fields)
+        tree_request["records"].append({
+            "attributes": {
+                "type": salesforce_config.sobject_api_name,
+                "referenceId": f"New{salesforce_config.sobject_api_name}"
+            },
+            **fields
+        })
+        for line in record[salesforce_config.child_field_name.name].filtered_domain(eval(salesforce_config.child_rel_filter)):
+            ref_key = f"New{salesforce_config.sobject_api_name}" + str(len(map_ref_fields) + 1)
+            map_ref_fields.update({ref_key: {'id': line.id, 'model': salesforce_config.line_rest_config_id.odoo_model_id.model}})
+            tree_request["records"].append({
+                "attributes": {
+                    "type": salesforce_config.line_rest_config_id.sobject_api_name,
+                    "referenceId": f"New{salesforce_config.line_rest_config_id.sobject_api_name}{len(map_ref_fields)}"
+                },
+                **self.build_rest_fields(salesforce_config.line_rest_config_id, line, line._fields)
+            })
+
+        return {
+            'fields': tree_request,
+            'map_ref_fields': map_ref_fields
+        }
+
+    def build_rest_composite_tree_request_create(self, salesforce_config, record, fields):
+        backend = self.env["salesforce.backend"].search([('id', '=', salesforce_config.salesforce_backend_id.id)], limit=1)
+        authenticate = backend.authenticate()
+        if authenticate['access_token']:
+            endpoint = salesforce_config.endpoint
+            version = salesforce_config.version
+            url = f"{endpoint}/services/data/v{version}/composite/tree/{salesforce_config.sobject_api_name}"
+            headers = {
+                'Content-Type': 'application/json',
+                'Authorization': f"Bearer {authenticate['access_token']}"
+            }
+            fields = self.build_rest_composite_tree_fields(salesforce_config, record, fields)
+
+            return {
+                "url": url,
+                "headers": headers,
+                'fields': json.dumps(fields['fields'], default=self.json_serial),
+                'map_ref_fields': fields['map_ref_fields'],
+                'method': salesforce_config.method,
+                'type': salesforce_config.type
+            }
+
+    def build_rest_composite_tree_request_update(self, salesforce_config, record, fields):
+        backend = self.env["salesforce.backend"].search([('id', '=', salesforce_config.salesforce_backend_id.id)], limit=1)
+        authenticate = backend.authenticate()
+        if authenticate['access_token']:
+            endpoint = salesforce_config.endpoint
+            version = salesforce_config.version
+            url = f"{endpoint}/services/data/v{version}/composite/tree/{salesforce_config.sobject_api_name}"
+            headers = {
+                'Content-Type': 'application/json',
+                'Authorization': f"Bearer {authenticate['access_token']}"
+            }
+            fields = self.build_rest_composite_tree_fields(salesforce_config, record, fields)
+
+            return {
+                "url": url,
+                "headers": headers,
+                'fields': json.dumps(fields['fields'], default=self.json_serial),
+                'map_ref_fields': fields['map_ref_fields'],
+                'method': salesforce_config.method,
+                'type': salesforce_config.type
+            }
+
+    def build_rest_composite_tree_request_delete(self, salesforce_config, record_id):
+        backend = self.env["salesforce.backend"].search([('id', '=', salesforce_config.salesforce_backend_id.id)], limit=1)
+        authenticate = backend.authenticate()
+        if authenticate['access_token']:
+            endpoint = salesforce_config.endpoint
+            version = salesforce_config.version
+            sobject_api_name = salesforce_config.sobject_api_name
+            url = f"{endpoint}/services/data/v{version}/composite/tree/{sobject_api_name}"
+            headers = {
+                'Content-Type': 'application/json',
+                'Authorization': f"Bearer {authenticate['access_token']}"
+            }
 
             return {
                 "url": url,
@@ -384,10 +485,7 @@ class SalesforceRestConfig(models.Model):
             return
         backend = self.env["salesforce.backend"].search([('id', '=', salesforce_config.salesforce_backend_id.id)], limit=1)
         authenticate = backend.authenticate()
-        print("Authenticate")
-        print(authenticate)
-        if authenticate['access_token'] is not None:
-            # Your custom logic for update event
+        if authenticate['access_token']:
             endpoint = salesforce_config.endpoint
             version = salesforce_config.version
             url = f"{endpoint}/services/data/v{version}/query?q="+query
@@ -411,7 +509,14 @@ class SalesforceRestConfig(models.Model):
             case 'single':
                 return self.build_rest_single_request_create(salesforce_config,record, fields)
             case 'composite':
-                return self.build_rest_composite_request_create(salesforce_config,record, fields)    
+                records_size = len(record[salesforce_config['child_field_name']['name']])+1
+                if records_size <= 25:
+                    return self.build_rest_composite_request_create(salesforce_config,record, fields)
+                elif records_size > 25 and records_size <= 200:
+                    return self.build_rest_composite_tree_request_create(salesforce_config,record, fields)
+                else:
+                    return self.build_rest_composite_batch_request_create(salesforce_config,record, fields)
+                
             case 'bulk':
                 return
             
@@ -423,7 +528,14 @@ class SalesforceRestConfig(models.Model):
             case 'single':
                 return self.build_rest_single_request_update(salesforce_config,record, fields)
             case 'composite':
-                return self.build_rest_composite_request_update(salesforce_config,record, fields)    
+                records_size = len(record[salesforce_config['child_field_name']['name']])+1
+                if records_size <= 25:
+                    return self.build_rest_composite_request_update(salesforce_config,record, fields)
+                elif records_size > 25 and records_size <= 200:
+                    return self.build_rest_composite_tree_request_update(salesforce_config,record, fields)
+                else:
+                    return self.build_rest_composite_batch_request_update(salesforce_config,record, fields)
+                
             case 'bulk':
                 return
             
@@ -435,7 +547,13 @@ class SalesforceRestConfig(models.Model):
             case 'single':
                 return self.build_rest_single_request_delete(salesforce_config,record_id)
             case 'composite':
-                return self.build_rest_composite_request_delete(salesforce_config,record_id)
+                records_size = len(record_id)
+                if records_size <= 25:
+                    return self.build_rest_composite_request_delete(salesforce_config,record_id)
+                elif records_size > 25 and records_size <= 200:
+                    return self.build_rest_composite_tree_request_delete(salesforce_config,record_id)
+                else:
+                    return self.build_rest_composite_batch_request_delete(salesforce_config,record_id)
             case 'bulk':
                 return
 

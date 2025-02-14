@@ -22,7 +22,7 @@ class SalesforceRestLog(models.Model):
 
     @api.model
     def create_log(self, name, request_url, request_method, request_headers, request_body, response_status, response_headers, response_body, error_message=None):
-        self.create({
+        self.env['salesforce.rest.log'].create({
             'name': name,
             'request_url': request_url,
             'request_method': request_method,
