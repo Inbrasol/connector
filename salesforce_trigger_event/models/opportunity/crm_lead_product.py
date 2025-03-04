@@ -133,6 +133,7 @@ class CrmLeadProduct(models.Model):
     
     @api.model
     def write(self, vals):
+        
         _logger.error("crm.lead.product: %s", vals)
         _logger.error("crm.lead.product: %s", self.sf_id)
         _logger.error("crm.lead.product: %s", vals.get('product_id'))
