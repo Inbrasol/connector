@@ -133,8 +133,10 @@ class CrmLeadProduct(models.Model):
     
     @api.model
     def write(self, vals):
-        _logger.error("on_sale_order_line_update initi: %s", vals)
-        _logger.error("on_sale_order_line_update initi: %s", self.env.context.get('skip_sync'))
+        _logger.error("crm.lead.product: %s", vals)
+        _logger.error("crm.lead.product: %s", self.sf_id)
+        _logger.error("crm.lead.product: %s", vals.get('product_id'))
+        _logger.error("crm.lead.product: %s", self.product_tmpl_id.sf_id)
         
         # Call Sync Product Template to Salesforce
         if self.sf_id in [False, None, ''] and vals.get('product_id') and self.product_tmpl_id.sf_id not in [False, None, '']:
