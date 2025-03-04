@@ -1,6 +1,7 @@
 import requests
 import logging
 import json
+import threading
 
 _logger = logging.getLogger(__name__)
 
@@ -12,6 +13,7 @@ from ..backend.salesforce_rest_utils import SalesforceRestUtils
 
 class CrmLead(models.Model):
     _inherit = 'crm.lead'
+
     
     @api.model
     def create(self, vals):
@@ -60,16 +62,33 @@ class CrmLead(models.Model):
         self._event('on_crm_lead_unlink').notify(lead,lead.id)
         return lead
 
+    @api.model
+    def create_lines_to_sf(self):
+        related_model = self.env['crm.lead.product']
+        fields_dict = related_model._fields
+        product_lines_create = self.env['crm.lead.product'].search([
+            ('lead_id', 'in', self.ids),
+            ('sf_id', 'in', [False, None, '']),
+            ('product_id.sf_id', 'not in', [False, None, ''])
+        ])
+        if product_lines_create:
+            self._event('on_crm_lead_product_create').notify(product_lines_create, fields_dict)
+    
+
     def _process_lines(self, vals):
         product_lines_update_ids = []
+        product_lines_create_size = 0
         related_model = self.env['crm.lead.product']
         fields_dict = related_model._fields
         if 'lead_product_ids' in vals:
             for product_line in vals['lead_product_ids']:
                 operation, line_id = product_line[0], product_line[1]
+                if operation == 0:
+                    product_lines_create_size += 1
                 if operation == 1:
                     product_lines_update_ids.append(line_id)
-
+        if product_lines_create_size > 0:
+            threading.Timer(60.0, self.create_lines_to_sf).start()
         if product_lines_update_ids:
             product_lines = related_model.browse(product_lines_update_ids)
             self.env['crm.lead.product']._event('on_crm_lead_product_update').notify(product_lines, fields_dict)
