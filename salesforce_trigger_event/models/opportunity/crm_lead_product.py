@@ -26,6 +26,11 @@ class CrmLeadProduct(models.Model):
     @api.model
     def write(self, vals):
         # Call Sync Product Template to Salesforce
+        _logger.error("crm.lead.product: %s", vals)
+        _logger.error("crm.lead.product: %s", self.sf_id)
+        _logger.error("crm.lead.product: %s", vals.get('product_id'))
+        _logger.error("crm.lead.product: %s", self.product_tmpl_id.sf_id)
+    
         if self.sf_id in [False, None, ''] and vals.get('product_id') and self.product_tmpl_id.sf_id not in [False, None, '']:
             self._event('on_crm_lead_product_create').notify(self, fields=vals.keys)
         
