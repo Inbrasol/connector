@@ -1,73 +1,178 @@
 import requests
 import json
 import logging
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+
 _logger = logging.getLogger(__name__)
 
 class SalesforceRestUtils:
 
-    ##Utils Methods###
-    def get(self, url, headers):
-        response = requests.get(url, headers= headers)
-        return response
+    @staticmethod
+    def get(url, headers):
+        try:
+            response = requests.get(url, headers=headers)
+            response.raise_for_status()
+            return response
+        except requests.exceptions.RequestException as e:
+            _logger.error(f"GET request failed: {e}")
+            return None
 
-    def post(self, url, headers, data):
-        response = requests.post(url, headers=headers, data=data)
-        return response
+    @staticmethod
+    def post(url, headers, data):
+        try:
+            response = requests.post(url, headers=headers, data=data)
+            response.raise_for_status()
+            return response
+        except requests.exceptions.RequestException as e:
+            _logger.error(f"POST request failed: {e}")
+            return None
 
-    def put(self, url, headers, data):
-        response = requests.put(url, headers = headers, data=data)
-        return response
+    @staticmethod
+    def put(url, headers, data):
+        try:
+            response = requests.put(url, headers=headers, data=data)
+            response.raise_for_status()
+            return response
+        except requests.exceptions.RequestException as e:
+            _logger.error(f"PUT request failed: {e}")
+            return None
     
-    def patch(self, url, headers, data):
-        response = requests.patch(url, headers = headers, data=data)
-        return response
+    @staticmethod
+    def patch(url, headers, data):
+        try:
+            _logger.error(f"PATCH request url: {url}")
+            _logger.error(f"PATCH request headers: {headers}")
+            _logger.error(f"PATCH request data: {data}")
+            response = requests.patch(url, headers=headers, data=data)
+            response.raise_for_status()
+            return response
+        except requests.exceptions.RequestException as e:
+            _logger.error(f"PATCH request failed: {e}")
+            return None
 
-    def delete(self, url, headers):
-        response = requests.delete(url, headers = headers)
-        return response
+    @staticmethod
+    def delete(url, headers):
+        try:
+            response = requests.delete(url, headers=headers)
+            response.raise_for_status()
+            return response
+        except requests.exceptions.RequestException as e:
+            _logger.error(f"DELETE request failed: {e}")
+            return None
 
-    def json_serial(self,obj):
-        #JSON serializer for objects not serializable by default json code
+    @staticmethod
+    def json_serial(obj):
         if isinstance(obj, date):
             return obj.strftime('%Y-%m-%d')
         raise TypeError(f"Type {type(obj)} not serializable")
 
-    def replace_value(self, json_data, key_to_replace, new_value):
-        for item in json_data:
-            rich_input = item.get("richInput")
-            if rich_input and key_to_replace in rich_input:
-                rich_input[key_to_replace] = new_value
+    @staticmethod
+    def replace_value(json_data, key_to_replace, new_value):
+        if isinstance(json_data, list):
+            for item in json_data:
+                rich_input = item.get("richInput")
+                if rich_input and key_to_replace in rich_input:
+                    rich_input[key_to_replace] = new_value
         return json_data
-    
-    def get_operation_type_by_size(self, config, record):
-        if config.type == 'composite':
-            count = len(record[config.child_field_name.name])
-            if count > 200:
-                return 'bulk'
-            elif 24 <= count <= 199:
-                return 'composite_tree'
-            else:
-                return 'composite_single'
-        return config.type
 
-    def update_sf_integration_status(self, record, status_code, response_json, context_with_skip_sync):
-        if status_code  in [200, 201, 204]:
-            record.with_context(context_with_skip_sync).write({
-                'sf_id': response_json['id'],
-                'sf_integration_status': 'success',
-                'sf_integration_datetime': date.today()
-            })
-        else:
-            _logger.error(f"Failed to update Salesforce record: {response_json}")
+    @staticmethod
+    def update_sf_integration_status(record, rest_response, context_with_skip_sync):
+        if rest_response is None:
+            _logger.error("Salesforce response is None. Cannot update integration status.")
             record.with_context(context_with_skip_sync).write({
                 'sf_integration_status': 'failed',
-                'sf_integration_datetime': date.today(),
-                'sf_integration_error': response_json
+                'sf_integration_datetime': datetime.now(),
+                'sf_integration_error': 'No response received from Salesforce'
+            })
+            return
+
+        timestamp = datetime.now()
+        response_json = {}
+
+        # Si la respuesta es 204 (No Content), simplemente marcar como éxito sin parsear JSON
+        if rest_response.status_code == 204:
+            record.with_context(context_with_skip_sync).write({
+                'sf_integration_status': 'success',
+                'sf_integration_datetime': timestamp
+            })
+            return
+
+        # Intentar parsear JSON solo si la respuesta tiene contenido
+        if rest_response.text:
+            try:
+                if rest_response.headers.get("Content-Type", "").startswith("application/json"):
+                    response_json = rest_response.json()
+            except ValueError:
+                _logger.error(f"Failed to parse JSON response: {rest_response.text}")
+
+        if rest_response.status_code in {200, 201}:
+            update_values = {
+                'sf_integration_status': 'success',
+                'sf_integration_datetime': timestamp
+            }
+            if response_json.get('id'):
+                update_values['sf_id'] = response_json['id']
+            record.with_context(context_with_skip_sync).write(update_values)
+        else:
+            error_message = response_json if response_json else rest_response.text or f"HTTP {rest_response.status_code} (No content)"
+            _logger.error(f"Salesforce update failed. Status: {rest_response.status_code}, Response: {error_message}")
+
+            record.with_context(context_with_skip_sync).write({
+                'sf_integration_status': 'failed',
+                'sf_integration_datetime': timestamp,
+                'sf_integration_error': error_message
+            })
+
+    def update_sf_integration_status_collection(records, rest_response, context_with_skip_sync):
+        if rest_response is None:
+            _logger.error("Salesforce response is None. Cannot update integration status.")
+            records.with_context(context_with_skip_sync).write({
+                'sf_integration_status': 'failed',
+                'sf_integration_datetime': datetime.now(),
+                'sf_integration_error': 'No response received from Salesforce'
+            })
+            return
+
+        timestamp = datetime.now()
+        response_json = {}
+
+        # Si la respuesta es 204 (No Content), simplemente marcar como éxito sin parsear JSON
+        if rest_response.status_code == 204:
+            records.with_context(context_with_skip_sync).write({
+                'sf_integration_status': 'success',
+                'sf_integration_datetime': timestamp
+            })
+            return
+
+        # Intentar parsear JSON solo si la respuesta tiene contenido
+        if rest_response.text:
+            try:
+                if rest_response.headers.get("Content-Type", "").startswith("application/json"):
+                    response_json = rest_response.json()
+            except ValueError:
+                _logger.error(f"Failed to parse JSON response: {rest_response.text}")
+
+        if rest_response.status_code in {200, 201}:
+            update_values = {
+                'sf_integration_status': 'success',
+                'sf_integration_datetime': timestamp
+            }
+            if response_json.get('id'):
+                update_values['sf_id'] = response_json['id']
+            records.with_context(context_with_skip_sync).write(update_values)
+        else:
+            error_message = response_json if response_json else rest_response.text or f"HTTP {rest_response.status_code} (No content)"
+            _logger.error(f"Salesforce update failed. Status: {rest_response.status_code}, Response: {error_message}")
+
+            records.with_context(context_with_skip_sync).write({
+                'sf_integration_status': 'failed',
+                'sf_integration_datetime': timestamp,
+                'sf_integration_error': error_message
             })
     
-    #  REST API
-    def build_rest_fields(self, config, record, fields):
+    @staticmethod
+    def build_rest_fields(config, record, fields):
+        _logger.error(f"fields in build: {fields}")
         fields_to_rest = {}
         date_mappings = {
             'YESTERDAY': lambda: date.today() - timedelta(days=1),
@@ -102,7 +207,6 @@ class SalesforceRestUtils:
                 return date_mappings.get(field.default_value, lambda: date.today())()
             elif field.type == 'datetime':
                 return datetime_mappings.get(field.default_value, lambda: date.today().strftime('%Y-%m-%dT%H:%M:%SZ'))()
-        
             return field.default_value
         
         for field in config.rest_fields.filtered(lambda f: f.active):
@@ -123,54 +227,20 @@ class SalesforceRestUtils:
                (record_type.type == 'related' and related_value and related_value[record_type.odoo_related_field_id.name] == record_type.odoo_field_value):
                 fields_to_rest['RecordTypeId'] = record_type.record_type_id
 
+        _logger.error(f"fields_to_rest: {fields_to_rest}")
         return fields_to_rest
 
-    #  COMPOSITE REST API
-    def build_rest_composite_fields(self, config, record , fields):
-        request_fields = {"allOrNone" : True, 'compositeRequest': []}
-        map_ref_fields = {}
-        composite_request = []
-        map_ref_fields.update({f"New{config.sobject_api_name}": {'id': record.id, 'model':config.odoo_model_id.model}})
-        fields = self.build_rest_fields(config,record,fields)
-        composite_request.append({
-            "method": config.method,
-            "url": f"/services/data/v{config.version}/sobjects/{config.sobject_api_name}",
-            "referenceId": f"New{config.sobject_api_name}",
-            "body": fields
-        })
-        composite_request.append({
-            "method": "GET",
-            "referenceId": f"New{config.sobject_api_name}Info",
-            "url": f"/services/data/v{config.version}/sobjects/{config.sobject_api_name}/@{{New{config.sobject_api_name}.id}}"
-        })
-        for line in record[config['child_field_name']['name']].filtered_domain(eval(config.child_rel_filter)):
-            ref_key = f"New{config.sobject_api_name}" + str(len(map_ref_fields) + 1)
-            map_ref_fields.update({ref_key: {'id': line.id,'model':config['line_rest_config_id']['odoo_model_id']['model']}})
-            composite_request.append({
-                "method": config.line_rest_config_id.method,
-                "url": f"/services/data/v{config.line_rest_config_id.version}/sobjects/{config.line_rest_config_id.sobject_api_name}",
-                "referenceId": f"New{config.line_rest_config_id.sobject_api_name}{len(map_ref_fields)}",
-                "body": self.build_rest_fields(config.line_rest_config_id, line, line._fields)
-            })
-
-        request_fields['compositeRequest'] = composite_request
-        return {
-            'body': request_fields,
-            'map_ref_fields': map_ref_fields
-        }
-    
-    #   COMPOSITE REST TREE
-    def build_rest_composite_tree_fields(self, config, record, fields):
-        tree_request = {
-            "records": []
-        }
+    #SINGLE RECORD
+    @staticmethod
+    def build_rest_composite_tree_nested_fields(config, record, fields):
+        tree_request = {"records": []}
         map_ref_fields = {}
         map_ref_fields.update({f"New{config.sobject_api_name}": {'id': record.id, 'model': config.odoo_model_id.model}})
-        fields = self.build_rest_fields(config, record, fields)
+        fields = SalesforceRestUtils.build_rest_fields(config, record, fields)
         main_record = {
             "attributes": {
-            "type": config.sobject_api_name,
-            "referenceId": f"New{config.sobject_api_name}"
+                "type": config.sobject_api_name,
+                "referenceId": f"New{config.sobject_api_name}"
             },
             **fields,
             config.child_rel_name: {
@@ -180,7 +250,7 @@ class SalesforceRestUtils:
         for line in record[config.child_field_name.name].filtered_domain(eval(config.child_rel_filter)):
             ref_key = f"New{config.sobject_api_name}" + str(len(map_ref_fields) + 1)
             map_ref_fields.update({ref_key: {'id': line.id, 'model': config.line_rest_config_id.odoo_model_id.model}})
-            childs_fields = self.build_rest_fields(config.line_rest_config_id, line, line._fields)
+            childs_fields = SalesforceRestUtils.build_rest_fields(config.line_rest_config_id, line, line._fields)
             fields_to_remove = config.line_rest_config_id.rest_fields.filtered(lambda f: f.remove_to_composite)
             for field in fields_to_remove:
                 if field.salesforce_field in childs_fields:
@@ -201,15 +271,111 @@ class SalesforceRestUtils:
             'map_ref_fields': map_ref_fields
         }
 
-    #  COMPOSITE REST BATCH
-    def build_rest_composite_batch_fields(self, config, records):
+    @staticmethod
+    def build_rest_composite_nested_fields(config, record, fields):
+        request_fields = {"allOrNone": True, 'compositeRequest': []}
+        map_ref_fields = {}
+        map_ref_fields.update({f"New{config.sobject_api_name}": {'id': record.id, 'model': config.odoo_model_id.model}})
+        fields = SalesforceRestUtils.build_rest_fields(config, record, fields)
+        composite_request = [
+            {
+                "method": config.method,
+                "url": f"/services/data/v{config.version}/sobjects/{config.sobject_api_name}",
+                "referenceId": f"New{config.sobject_api_name}",
+                "body": fields
+            },
+            {
+                "method": "GET",
+                "referenceId": f"New{config.sobject_api_name}Info",
+                "url": f"/services/data/v{config.version}/sobjects/{config.sobject_api_name}/@{{New{config.sobject_api_name}.id}}"
+            }
+        ]
+        for line in record[config['child_field_name']['name']].filtered_domain(eval(config.child_rel_filter)):
+            ref_key = f"New{config.sobject_api_name}" + str(len(map_ref_fields) + 1)
+            map_ref_fields.update({ref_key: {'id': line.id, 'model': config['line_rest_config_id']['odoo_model_id']['model']}})
+            composite_request.append({
+                "method": config.line_rest_config_id.method,
+                "url": f"/services/data/v{config.line_rest_config_id.version}/sobjects/{config.line_rest_config_id.sobject_api_name}",
+                "referenceId": f"New{config.line_rest_config_id.sobject_api_name}{len(map_ref_fields)}",
+                "body": SalesforceRestUtils.build_rest_fields(config.line_rest_config_id, line, line._fields)
+            })
+
+        request_fields['compositeRequest'] = composite_request
+        return {
+            'body': request_fields,
+            'map_ref_fields': map_ref_fields
+        }
+    
+
+    #COLLECTION RECORDS
+    @staticmethod
+    def build_rest_composite_fields(config, records, fields):
+        request_fields = {"allOrNone": True, 'compositeRequest': []}
+        map_ref_fields = {}
+        for record in records:
+            map_ref_fields.update({f"New{config.sobject_api_name}{record.id}": {'id': record.id, 'model': config.odoo_model_id.model}})
+            fields = SalesforceRestUtils.build_rest_fields(config, record, fields)
+            composite_request = {
+                "method": config.method,
+                "url": f"/services/data/v{config.version}/sobjects/{config.sobject_api_name}",
+                "referenceId": f"New{config.sobject_api_name}{record.id}",
+                "body": fields
+            }
+            request_fields['compositeRequest'].append(composite_request)
+
+        return {
+            'body': request_fields,
+            'map_ref_fields': map_ref_fields
+        }
+
+    @staticmethod
+    def build_rest_composite_tree_fields(config, records, fields):
+        tree_request = {"records": []}
+        map_ref_fields = {}
+        for record in records:
+            map_ref_fields.update({f"New{config.sobject_api_name}{record.id}": {'id': record.id, 'model': config.odoo_model_id.model}})
+            fields = SalesforceRestUtils.build_rest_fields(config, record, fields)
+            main_record = {
+                "attributes": {
+                    "type": config.sobject_api_name,
+                    "referenceId": f"New{config.sobject_api_name}{record.id}"
+                },
+                **fields
+            }    
+            tree_request["records"].append(main_record)
+        return {
+            'body': tree_request,
+            'map_ref_fields': map_ref_fields
+        }
+
+    @staticmethod
+    def build_rest_composite_collection_fields(config, records, fields, operation):
+        request_fields = {"allOrNone": True, "records": []}
+        for record in records:
+            record_fields = SalesforceRestUtils.build_rest_fields(config, record, fields)
+            if operation == 'update':
+                record_fields['id'] = record.sf_id
+            
+            record_data = {
+                "attributes": {"type": config.sobject_api_name},
+                **record_fields
+            }
+            request_fields["records"].append(record_data)
+        
+        return {
+            'body': request_fields,
+            'map_ref_fields': None
+        }
+
+    @staticmethod
+    def build_rest_composite_batch_fields(config, records):
         batch_request = []
         map_ref_fields = {}
         for line in records:
             batch_request.append({
-            "method": config.method,
-            "url": f"/services/data/v{config.version}/sobjects/{config.sobject_api_name}",
-            "richInput": self.build_rest_fields(config, line, line._fields)
+                "method": config.method,
+                "url": f"/services/data/v{config.version}/sobjects/{config.sobject_api_name}",
+                "richInput": SalesforceRestUtils.build_rest_fields(config, line, line._fields)
             })
 
         return {
@@ -217,10 +383,10 @@ class SalesforceRestUtils:
             'map_ref_fields': map_ref_fields
         }
 
-    #  BULK 2.0
-    def build_bulk_request_fields(self, config, records):
+    @staticmethod
+    def build_bulk_request_fields(config, records):
         json_records = []
         for line in records:
-            json_records.append(self.build_rest_fields(config, line, line._fields))
+            json_records.append(SalesforceRestUtils.build_rest_fields(config, line, line._fields))
 
-        return json.dumps(json_records, default=self.json_serial)
+        return json.dumps(json_records, default=SalesforceRestUtils.json_serial)

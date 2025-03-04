@@ -44,6 +44,7 @@ class SaleOrder(models.Model):
 
         print("Sale Order Update")
         print(self)
+        self._process_lines(vals)
         return self
     
     @api.model
@@ -52,7 +53,22 @@ class SaleOrder(models.Model):
         order = super(SaleOrder, self).unlink()
         return order
     
+    def _process_lines(self, vals):
+        sale_order_lines_update_ids = []
+        related_model = self.env['sale.order.line']
+        fields_dict = related_model._fields
+        if 'order_line' in vals:
+            for product_line in vals['order_line']:
+                operation, line_id = product_line[0], product_line[1]
+                if operation == 1:
+                    sale_order_lines_update_ids.append(line_id)
 
+        if sale_order_lines_update_ids:
+            sale_order_lines = related_model.browse(sale_order_lines_update_ids)
+            self.env['sale.order.line']._event('on_sale_order_line_update').notify(sale_order_lines, fields_dict)
+        
+        return self
+    
 class SaleOrderListener(Component):
     _name = 'sale.order.listener'
     _inherit = 'base.event.listener'
@@ -61,7 +77,7 @@ class SaleOrderListener(Component):
 
     @skip_if(lambda self, record, fields: not record or not fields)
     def on_sale_order_create(self, record, fields):
-        rest_request = SalesforceRestUtils.build_request(record, fields, 'create', 'sale_order_create')
+        rest_request = self.env['salesforce.rest.config'].build_request(record, fields, 'create', 'sale_order_create')
         if not rest_request:
             return
 
@@ -74,22 +90,22 @@ class SaleOrderListener(Component):
             self._handle_failed_response(record, rest_response, context_with_skip_sync)
 
     def _send_rest_request(self, rest_request):
-        if rest_request['type'] in ['composite', 'single']:
+        if rest_request['type'] in ['rest','composite_tree', 'composite']:
             return SalesforceRestUtils.post(rest_request['url'], rest_request['headers'], rest_request['body'])
         _logger.warning(f"Unsupported request type: {rest_request['type']}")
         return None
 
     def _handle_successful_response(self, rest_request, rest_response, context_with_skip_sync):
-        if rest_request['type'] == 'composite':
+        if rest_request['type'] in ['composite_tree','composite']:
             self._process_composite_response(rest_request, rest_response, context_with_skip_sync)
-        elif rest_request['type'] == 'single':
+        elif rest_request['type'] == 'rest':
             self._update_record_with_response(rest_request, rest_response, context_with_skip_sync)
 
     def _process_composite_response(self, rest_request, rest_response, context_with_skip_sync):
         response_data = rest_response.json()
-        if rest_request['composite_type'] == 'single':
+        if rest_request['type'] == 'composite':
             self._update_records_from_composite_response(response_data['compositeResponse'], rest_request, context_with_skip_sync)
-        elif rest_request['composite_type'] == 'tree':
+        elif rest_request['type'] == 'composite_tree':
             self._update_records_from_composite_response(response_data['results'], rest_request, context_with_skip_sync)
 
     def _update_records_from_composite_response(self, responses, rest_request, context_with_skip_sync):
@@ -98,7 +114,7 @@ class SaleOrderListener(Component):
                 map_field = rest_request['map_ref_fields'][record_response['referenceId']]
                 record_to_update = self.env[map_field['model']].browse(map_field['id'])
                 record_to_update.with_context(context_with_skip_sync).write({
-                    'sf_id': record_response.get('id', record_response['body'].get('id')),
+                    'sf_id': record_response.get('id'),
                     'sf_integration_status': 'success',
                     'sf_integration_datetime': datetime.now()
                 })
@@ -123,7 +139,7 @@ class SaleOrderListener(Component):
     @skip_if(lambda self, record, fields: not record or not fields)
     def on_sale_order_update(self, record, fields):
         if record.sf_id not in [False, None, '']:
-            rest_request = SalesforceRestUtils.build_request(record, fields, 'update', 'sale_order_update')
+            rest_request = self.env['salesforce.rest.config'].build_request(record, fields, 'update', 'sale_order_update')
             context_with_skip_sync = dict(self.env.context, skip_sync=True)
             if rest_request:
                 rest_response = None
@@ -132,15 +148,15 @@ class SaleOrderListener(Component):
                         rest_response = SalesforceRestUtils.patch(rest_request['url'],rest_request['headers'],rest_request['body'])
                     case 'PUT':
                         rest_response = SalesforceRestUtils.put(rest_request['url'],rest_request['headers'],rest_request['body'])
-                SalesforceRestUtils.update_sf_integration_status(record, rest_response.status_code, rest_response.json(), context_with_skip_sync)
+                SalesforceRestUtils.update_sf_integration_status(record, rest_response, context_with_skip_sync)
     
 
     @skip_if(lambda self: not self)
     def on_sale_order_delete(self,record, record_id):
         sale_order = self.env['sale.order'].browse(record.id)
         if sale_order.sf_id not in [False,None, '']:
-            rest_request = SalesforceRestUtils.build_request(sale_order, None, 'delete', 'sale_order_delete')
+            rest_request = self.env['salesforce.rest.config'].build_request(sale_order, None, 'delete', 'sale_order_delete')
             if rest_request:
                 context_with_skip_sync = dict(self.env.context, skip_sync=True)
                 rest_response = SalesforceRestUtils.delete(rest_request['url'],rest_request['headers'])
-                SalesforceRestUtils.update_sf_integration_status(sale_order, rest_response.status_code, rest_response.json(), context_with_skip_sync)
+                #SalesforceRestUtils.update_sf_integration_status(record, rest_response, context_with_skip_sync)

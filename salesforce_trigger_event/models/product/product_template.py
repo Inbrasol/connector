@@ -57,7 +57,7 @@ class ProductProductListener(Component):
     @skip_if(lambda self, record, fields: not record or not fields)
     def on_product_template_create(self, record, fields):
         if record.sf_id in [False, None, '']:
-            rest_request = SalesforceRestUtils.build_request(record, fields, 'create', 'product_template_create')
+            rest_request =  self.env['salesforce.rest.config'].build_request(record, fields, 'create', 'product_template_create')
             if rest_request:
                 context_with_skip_sync = dict(self.env.context, skip_sync=True)
                 rest_response = SalesforceRestUtils.post(rest_request['url'], rest_request['headers'], rest_request['body'])
@@ -69,7 +69,7 @@ class ProductProductListener(Component):
 
     def _handle_pricebook_entry(self, record, sf_id, context_with_skip_sync):
         query = f"SELECT+Id,Pricebook2Id,Product2Id,UnitPrice,IsActive+FROM+PriceBookEntry+WHERE+Product2Id='{sf_id}'"
-        request_pricebook_entry = self.env['salesforce.rest.config'].build_rest_request_query(query, 'product_template_pricebook_entry_query')
+        request_pricebook_entry = self.env['salesforce.rest.config'].build_request(query, None,'query', 'product_template_pricebook_entry_query')
         if request_pricebook_entry:
             rest_response_pricebook_entry = SalesforceRestUtils.get(request_pricebook_entry['url'], request_pricebook_entry['headers'])
             if rest_response_pricebook_entry.status_code == 200:
@@ -109,7 +109,7 @@ class ProductProductListener(Component):
     @skip_if(lambda self, record, fields: not record or not fields)
     def on_product_template_update(self, record, fields):
         if record.sf_id not in [False, None, '']:
-            rest_request = SalesforceRestUtils.build_request(record, fields, 'update', 'product_template_update')
+            rest_request = self.env['salesforce.rest.config'].build_request(record, fields, 'update', 'product_template_update')
             if rest_request:
                 rest_response = None
                 context_with_skip_sync = dict(self.env.context, skip_sync=True)
@@ -124,7 +124,7 @@ class ProductProductListener(Component):
     @skip_if(lambda self: not self)
     def on_product_template_delete(self,record,record_id):
         if record.sf_id not in [False, None, '']:
-            rest_request = SalesforceRestUtils.build_request(record, None,'delete','product_template_delete')
+            rest_request = self.env['salesforce.rest.config'].build_request(record, None,'delete','product_template_delete')
             if rest_request:
                 context_with_skip_sync = dict(self.env.context, skip_sync=True)
                 rest_response = SalesforceRestUtils.delete(rest_request['url'],rest_request['headers'])

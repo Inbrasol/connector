@@ -23,6 +23,7 @@ class SaleOrderLine(models.Model):
     
     @api.model
     def write(self, vals):
+        _logger.error("on_sale_order_line_update initi: %s", vals)
         if self.env.context.get('skip_sync'):
             super(SaleOrderLine, self).write(vals)
             return self
@@ -39,6 +40,7 @@ class SaleOrderLine(models.Model):
             elif self[field] != value:
                 changed_fields.append(field)
         super(SaleOrderLine, self.with_context(context_with_skip_sync)).write(vals)
+        _logger.error("on_sale_order_line_update: %s", changed_fields) 
         if len(changed_fields) > 0:
             self._event('on_sale_order_line_update').notify(self, changed_fields)
         return self
@@ -58,7 +60,7 @@ class SaleOrderLineListener(Component):
     
     @skip_if(lambda self, record, fields: not record or not fields)
     def on_sale_order_line_create(self, record, fields):
-        rest_request = SalesforceRestUtils.build_request(record, fields, 'create', 'sale_order_line_create')
+        rest_request = self.env['salesforce.rest.config'].build_request(record, fields, 'create', 'sale_order_line_create')
         if rest_request:
             context_with_skip_sync = dict(self.env.context, skip_sync=True)
             rest_response = SalesforceRestUtils.post(rest_request['url'],rest_request['headers'],rest_request['body'])
@@ -67,8 +69,9 @@ class SaleOrderLineListener(Component):
 
     @skip_if(lambda self, record, fields: not record or not fields)
     def on_sale_order_line_update(self, record, fields):
+        _logger.error("on_sale_order_line_update: %s", record.sf_id)
         if record.sf_id not in [False, None, '']:
-            rest_request = SalesforceRestUtils.build_request(record, fields, 'update', 'sale_order_line_update')
+            rest_request = self.env['salesforce.rest.config'].build_request(record, fields, 'update', 'sale_order_line_update')
             if rest_request:
                 context_with_skip_sync = dict(self.env.context, skip_sync=True)
                 rest_response = None
@@ -77,13 +80,13 @@ class SaleOrderLineListener(Component):
                         rest_response = SalesforceRestUtils.patch(rest_request['url'],rest_request['headers'],rest_request['body'])
                     case 'PUT':
                         rest_response = SalesforceRestUtils.put(rest_request['url'],rest_request['headers'],rest_request['body'])
-                SalesforceRestUtils.update_sf_integration_status(record, rest_response.status_code, rest_response.json(), context_with_skip_sync)
+                #SalesforceRestUtils.update_sf_integration_status(record, rest_response.status_code, rest_response.json(), context_with_skip_sync)
     
     @skip_if(lambda self: not self)
     def on_sale_order_line_delete(self,record, record_id):
         if record.sf_id not in [False, None, '']:
-            rest_request = SalesforceRestUtils.build_request(record, None, 'delete', 'sale_order_line_delete')
+            rest_request = self.env['salesforce.rest.config'].build_request(record, None, 'delete', 'sale_order_line_delete')
             if rest_request:
                 context_with_skip_sync = dict(self.env.context, skip_sync=True)
                 rest_response = SalesforceRestUtils.delete(rest_request['url'],rest_request['headers'])
-                SalesforceRestUtils.update_sf_integration_status(record, rest_response.status_code, rest_response.json(), context_with_skip_sync)
+                #SalesforceRestUtils.update_sf_integration_status(record, rest_response.status_code, rest_response.json(), context_with_skip_sync)

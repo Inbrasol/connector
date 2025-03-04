@@ -65,19 +65,22 @@ class SalesforcePartnerListener(Component):
         rest_request = self.env['salesforce.rest.config'].build_request(record,fields,'create','res_partner_create')
         if rest_request:
             rest_response = SalesforceRestUtils.post(rest_request['url'],rest_request['headers'],rest_request['body'])
-            SalesforceRestUtils.update_sf_integration_status(record, rest_response.status_code, rest_response.json(), context_with_skip_sync)
+            _logger.error(f"Failed to update Salesforce record: {rest_response}")
+            SalesforceRestUtils.update_sf_integration_status(record, rest_response, context_with_skip_sync)
             
 
     @skip_if(lambda self, record, fields: not record or not fields)
     def on_res_partner_update(self, record, fields):
         print("Fields")
         print(fields)
+        _logger.error(f"Fields Before: {fields}")
         if record.sf_id not in [False, None, '']:
             rest_request = self.env['salesforce.rest.config'].build_request(record,fields,'update','res_partner_update')
             if rest_request:
                 rest_response = SalesforceRestUtils.patch(rest_request['url'],rest_request['headers'],rest_request['body'])
+                _logger.error(f"Failed to update Salesforce record: {rest_response}")
                 context_with_skip_sync = dict(self.env.context, skip_sync=True)
-                SalesforceRestUtils.update_sf_integration_status(record, rest_response.status_code, rest_response.json(), context_with_skip_sync)
+                SalesforceRestUtils.update_sf_integration_status(record, rest_response, context_with_skip_sync)
 
 
     @skip_if(lambda self: not self)
@@ -87,4 +90,4 @@ class SalesforcePartnerListener(Component):
             if rest_request:
                 rest_response = SalesforceRestUtils.delete(rest_request['url'],rest_request['headers'])
                 context_with_skip_sync = dict(self.env.context, skip_sync=True)
-                SalesforceRestUtils.update_sf_integration_status(record, rest_response.status_code, rest_response.json(), context_with_skip_sync)
+                SalesforceRestUtils.update_sf_integration_status(record, rest_response, context_with_skip_sync)

@@ -61,7 +61,7 @@ class AccountMoveLineListener(Component):
 
     @skip_if(lambda self, record, fields: not record or not fields)
     def on_account_move_line_create(self, record, fields):
-        rest_request = SalesforceRestUtils.build_request(record, fields, 'create', 'account_move_line_create')
+        rest_request = self.env['salesforce.rest.config'].build_request(record, fields, 'create', 'account_move_line_create')
         if rest_request:
             rest_response = SalesforceRestUtils.post(rest_request['url'],rest_request['headers'],rest_request['body'])
             context_with_skip_sync = dict(self.env.context, skip_sync=True)
@@ -69,21 +69,20 @@ class AccountMoveLineListener(Component):
 
     @skip_if(lambda self, record, fields: not record or not fields)
     def on_account_move_line_update(self, record, fields):
-        for line in record:
-            if line.sf_id not in [False, None, '']:
-                rest_request = SalesforceRestUtils.build_request(line, fields, 'update', 'account_move_line_update')
-                if rest_request:
-                    context_with_skip_sync = dict(self.env.context, skip_sync=True)
-                    rest_response = SalesforceRestUtils.post(rest_request['url'],rest_request['headers'],rest_request['body'])
-                    SalesforceRestUtils.update_sf_integration_status(line, rest_response, context_with_skip_sync)
+        rest_request = self.env['salesforce.rest.config'].build_request(records, fields, 'update', 'account_move_line_update')
+        if rest_request:
+            context_with_skip_sync = dict(self.env.context, skip_sync=True)
+            rest_response = None
+            match rest_request['method']:
+                case 'PATCH':
+                    rest_response = SalesforceRestUtils.patch(rest_request['url'], rest_request['headers'], rest_request['body'])
+                case 'PUT':
+                    rest_response = SalesforceRestUtils.put(rest_request['url'], rest_request['headers'], rest_request['body'])
 
-    @skip_if(lambda self, record, fields: not record or not fields)
-    def on_account_move_line_delete(self,record, record_id):
-        print("record_id")
-        print(record_id)
-        if record.sf_id not in [False, None, '']:
-            rest_request = SalesforceRestUtils.build_request(record, fields, 'delete', 'account_move_line_delete')
-            if rest_request:
-                rest_response = requests.delete(rest_request['url'], headers=rest_request['headers'])
-                context_with_skip_sync = dict(self.env.context, skip_sync=True)
-                SalesforceRestUtils.update_sf_integration_status(record, rest_response, context_with_skip_sync)
+
+    @skip_if(lambda self, records: not records)
+    def on_account_move_line_delete(self,records):
+        rest_request = self.env['salesforce.rest.config'].build_request(records, None, 'delete', 'account_move_line_delete')
+        if rest_request:
+            context_with_skip_sync = dict(self.env.context, skip_sync=True)
+            rest_response = SalesforceRestUtils.delete(rest_request['url'], rest_request['headers'])

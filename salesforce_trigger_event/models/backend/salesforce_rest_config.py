@@ -27,7 +27,9 @@ class SalesforceRestConfig(models.Model):
     rest_fields = fields.One2many('salesforce.rest.fields', 'salesforce_rest_config_id', 'Fields')
     record_types = fields.One2many('salesforce.record.type', 'salesforce_rest_config_id', 'Record Types')
     active = fields.Boolean('Active', default=True)
-    type = fields.Selection([('single', 'Single'),('composite','Composite'),('bulk','Bulk')], 'Type', required=True, default='single')
+    type = fields.Selection([('single', 'Single'),('composite','Composite'),('composite_tree','Composite Tree'),
+                            ('composite_collection','Composite Collection'),('composite_batch','Composite Batch'),
+                            ('bulk','Bulk')], 'Type', required=True, default='single')
     line_rest_config_id = fields.Many2one('salesforce.rest.config', 'Line Setting')
     child_field_name = fields.Many2one('ir.model.fields', 'Odoo Line Field', ondelete='cascade' , domain="[('model_id', '=', odoo_model_id)]")
     child_rel_name = fields.Char('Relation Model')
@@ -57,145 +59,311 @@ class SalesforceRestConfig(models.Model):
         if not config:
             _logger.error(f"No active Salesforce REST configuration found with name: {config_name}")
             return None
-        
-        request_type = SalesforceRestUtils.get_operation_type_by_size(config, record)
         factory = RequestFactory()
-        
         try:
-            request_builder = factory.get_request_builder(request_type)
+            request_builder = factory.get_request_builder(config.type)
         except ValueError as e:
             _logger.error(f"Error getting request builder: {e}")
             return None
         
         return request_builder.build_request(config, record, fields, operation)
-    
-    def build_rest_request_query(self, query, name):
-        salesforce_config = self.env['salesforce.rest.config'].search([('name', '=', name), ('active', '=', True)], limit=1)
-        if not salesforce_config:
-            return
-        backend = self.env["salesforce.backend"].search([('id', '=', salesforce_config.salesforce_backend_id.id)], limit=1)
-        authenticate = backend.authenticate()
-        if authenticate['access_token']:
-            endpoint = salesforce_config.endpoint
-            version = salesforce_config.version
-            url = f"{endpoint}/services/data/v{version}/query?q=" + query
-            headers = {
-                'Content-Type': 'application/json',
-                'Authorization': f"Bearer {authenticate['access_token']}"
-            }
-            return {
-                "url": url,
-                "headers": headers,
-                'method': salesforce_config.method,
-                'type': salesforce_config.type
-            }
 
 
 class RequestFactory:
     def get_request_builder(self, request_type):
-        if request_type == 'single':
-            return SingleRequestBuilder()
-        elif request_type == 'composite_single':
-            return CompositeSingleRequestBuilder()
-        elif request_type == 'composite_tree':
-            return CompositeTreeRequestBuilder()
-        elif request_type == 'composite_batch':
-            return CompositeBatchRequestBuilder()
-        elif request_type == 'bulk':
-            return BulkRequestBuilder()
-        else:
+        builders = {
+            'single': RestRequestBuilder,
+            'composite': CompositeRequestBuilder,
+            'composite_tree': CompositeTreeRequestBuilder,
+            'composite_collection': CompositesCollectionRequestBuilder,
+            'composite_batch': CompositeBatchRequestBuilder,
+            'bulk': BulkRequestBuilder
+        }
+        builder_class = builders.get(request_type)
+        if not builder_class:
             raise ValueError(f"Unknown request type: {request_type}")
+        return builder_class()
 
 class RequestBuilder:
+
     def build_request(self, config, record, fields, operation):
         raise NotImplementedError("Subclasses must implement this method")
-
-class SingleRequestBuilder(RequestBuilder):
-    def build_request(self, config, record, fields, operation):
+    
+    def get_headers(self, config):
         authenticate = config.authenticate()
-        if authenticate['access_token']:
-            url = f"{config.endpoint}/services/data/v{config.version}/sobjects/{config.sobject_api_name}"
-            if operation in ['update', 'delete']:
-                url += f"/{record.sf_id}"
-            headers = {
-                'Content-Type': 'application/json',
-                'Authorization': f"Bearer {authenticate['access_token']}"
-            }
-            body_request = SalesforceRestUtils.build_rest_fields(config, record, fields)
-            return {
-                "url": url,
-                "headers": headers,
-                'body': json.dumps(body_request, default=SalesforceRestUtils.json_serial),
-                'method': config.method,
-                'type': 'single'
-            }
+        if not authenticate.get('access_token'):
+            _logger.error("Authentication failed.")
+            return None
+        return {
+            'Content-Type': 'application/json',
+            'Authorization': f"Bearer {authenticate['access_token']}"
+        }
 
-class CompositeSingleRequestBuilder(RequestBuilder):
+class RestRequestBuilder(RequestBuilder):
+
+    def build_query_request(self, config, query):
+        url = f"{config.endpoint}/services/data/v{config.version}/query?q={query}"
+        headers = self.get_headers(config)
+        return {
+            "url": url,
+            "headers": headers,
+            'method': config.method,
+            'type': 'rest'
+        }
+    
+    def build_create_request(self, config, record, fields):
+        url = f"{config.endpoint}/services/data/v{config.version}/sobjects/{config.sobject_api_name}"
+        headers = self.get_headers(config)
+        body_request = SalesforceRestUtils.build_rest_fields(config, record, fields)
+        return {
+            "url": url,
+            "headers": headers,
+            'body': json.dumps(body_request, default=SalesforceRestUtils.json_serial),
+            'method': config.method,
+            'type': 'rest'
+        }
+    
+    def build_update_request(self, config, record, fields):
+        url = f"{config.endpoint}/services/data/v{config.version}/sobjects/{config.sobject_api_name}/{record.sf_id}"
+        headers = self.get_headers(config)
+        body_request = SalesforceRestUtils.build_rest_fields(config, record, fields)
+        return {
+            "url": url,
+            "headers": headers,
+            'body': json.dumps(body_request, default=SalesforceRestUtils.json_serial),
+            'method': config.method,
+            'type': 'rest'
+        }
+    
+    def build_delete_request(self, config, record):
+        url = f"{config.endpoint}/services/data/v{config.version}/sobjects/{config.sobject_api_name}/{record.sf_id}"
+        headers = self.get_headers(config)
+        return {
+            "url": url,
+            "headers": headers,
+            'method': config.method,
+            'type': 'rest'
+        }
+    
     def build_request(self, config, record, fields, operation):
-        authenticate = config.authenticate()
-        if authenticate['access_token']:
-            url = f"{config.endpoint}/services/data/v{config.version}/composite/sobjects/{config.sobject_api_name}"
-            headers = {
-                'Content-Type': 'application/json',
-                'Authorization': f"Bearer {authenticate['access_token']}"
-            }
-            body_request = SalesforceRestUtils.build_rest_composite_fields(config,record, fields)
-            return {
-                "url": url,
-                "headers": headers,
-                'body': json.dumps(body_request['body'], default=SalesforceRestUtils.json_serial),
-                'map_ref_fields': fields['map_ref_fields'],
-                'method': config.method,
-                'type': 'composite_single'
-            }
+        match operation:
+            case 'query':
+                return self.build_query_request(config, record)
+            case 'create':
+                return self.build_create_request(config, record, fields)
+            case 'update':
+                return self.build_update_request(config, record, fields)
+            case 'delete':
+                return self.build_delete_request(config, record)
+            case _:
+                _logger.error(f"Unsupported operation: {operation}")
+                return None
+            
+class CompositeRequestBuilder(RequestBuilder):
+    def build_create_request(self, config, record, fields):
+        url = f"{config.endpoint}/services/data/v{config.version}/composite"
+        headers = self.get_headers(config)
+        body_request = None
+
+        if not config.line_rest_config_id and isinstance(record, list):
+            body_request = SalesforceRestUtils.build_rest_composite_fields(config, record, fields)
+        elif config.line_rest_config_id and not isinstance(record, list):
+            body_request = SalesforceRestUtils.build_rest_composite_nested_fields(config, record, fields)
+        
+        return {
+            "url": url,
+            "headers": headers,
+            'body': json.dumps(body_request['body'], default=SalesforceRestUtils.json_serial),
+            'map_ref_fields': body_request['map_ref_fields'],
+            'method': config.method,
+            'type': 'composite'
+        }
+    
+    def build_update_request(self, config, record, fields):
+        url = f"{config.endpoint}/services/data/v{config.version}/composite"
+        headers = self.get_headers(config)
+        body_request = None
+
+        if not config.line_rest_config_id and isinstance(record, list):
+            body_request = SalesforceRestUtils.build_rest_composite_fields(config, record, fields)
+        elif config.line_rest_config_id and not isinstance(record, list):
+            body_request = SalesforceRestUtils.build_rest_composite_nested_fields(config, record, fields)
+        
+        return {
+            "url": url,
+            "headers": headers,
+            'body': json.dumps(body_request['body'], default=SalesforceRestUtils.json_serial),
+            'map_ref_fields': body_request['map_ref_fields'],
+            'method': config.method,
+            'type': 'composite'
+        }
+    
+    #Metodo por mejorar o retirar
+    def build_delete_request(self, config, record):
+        url = f"{config.endpoint}/services/data/v{config.version}/composite"
+        headers = self.get_headers(config)
+        body_request = None
+
+        if not config.line_rest_config_id and isinstance(record, list):
+            body_request = SalesforceRestUtils.build_rest_composite_fields(config, record, fields)
+        elif config.line_rest_config_id and not isinstance(record, list):
+            body_request = SalesforceRestUtils.build_rest_composite_nested_fields(config, record, fields)
+        
+        return {
+            "url": url,
+            "headers": headers,
+            'body': json.dumps(body_request['body'], default=SalesforceRestUtils.json_serial),
+            'map_ref_fields': body_request['map_ref_fields'],
+            'method': config.method,
+            'type': 'composite'
+        }
+    
+    def build_request(self, config, record, fields, operation):
+        match operation:
+            case 'create':
+                return self.build_create_request(config, record, fields)
+            case 'update':
+                return self.build_update_request(config, record, fields)
+            case 'delete':
+                return self.build_delete_request(config, record)
+            case _:
+                _logger.error(f"Unsupported operation: {operation}")
+                return None
 
 class CompositeTreeRequestBuilder(RequestBuilder):
     def build_request(self, config, record, fields, operation):
-        authenticate = config.authenticate()
-        if authenticate['access_token']:
-            url = f"{config.endpoint}/services/data/v{config.version}/composite/tree/{config.sobject_api_name}"
-            headers = {
-                'Content-Type': 'application/json',
-                'Authorization': f"Bearer {authenticate['access_token']}"
-            }
-            body_request = SalesforceRestUtils.build_rest_composite_tree_fields(config,record, fields)
-            return {
-                "url": url,
-                "headers": headers,
-                'body': json.dumps(body_request['body'], default=SalesforceRestUtils.json_serial),
-                'map_ref_fields': fields['map_ref_fields'],
-                'method': config.method,
-                'type': 'composite_tree'
-            }
+        url = f"{config.endpoint}/services/data/v{config.version}/composite/tree/{config.sobject_api_name}"
+        headers = self.get_headers(config)
+        body_request = None
+
+        if not config.line_rest_config_id:
+            body_request = SalesforceRestUtils.build_rest_composite_tree_fields(config, record, fields)
+        elif config.line_rest_config_id:
+            body_request = SalesforceRestUtils.build_rest_composite_tree_nested_fields(config, record, fields)
+        
+        return {
+            "url": url,
+            "headers": headers,
+            'body': json.dumps(body_request['body'], default=SalesforceRestUtils.json_serial),
+            'map_ref_fields': body_request['map_ref_fields'],
+            'method': config.method,
+            'type': 'composite_tree'
+        }
+
+class CompositesCollectionRequestBuilder(RequestBuilder):
+    def create_built_request(self, config, records, fields, operation):
+        url = f"{config.endpoint}/services/data/v{config.version}/composite/sobjects"
+        headers = self.get_headers(config)
+        body_request = SalesforceRestUtils.build_rest_composite_collection_fields(config, records, fields, operation)
+
+        return {
+            "url": url,
+            "headers": headers,
+            'body': json.dumps(body_request['body'], default=SalesforceRestUtils.json_serial),
+            "map_ref_fields": None,
+            "method": config.method,
+            "type": "composite_collection"
+        }
+    
+    def update_built_request(self, config, records, fields, operation):
+        url = f"{config.endpoint}/services/data/v{config.version}/composite/sobjects"
+        headers = self.get_headers(config)
+        body_request = SalesforceRestUtils.build_rest_composite_collection_fields(config, records, fields, operation)
+
+        return {
+            "url": url,
+            "headers": headers,
+            "body": json.dumps(body_request['body'], default=SalesforceRestUtils.json_serial),
+            "map_ref_fields": None,
+            "method": config.method,
+            "type": "composite_collection"
+        }
+    
+    def delete_built_request(self, config, records, fields, operation):
+        record_ids = ','.join(records)
+        url = f"{config.endpoint}/services/data/v{config.version}/composite/sobjects?ids={record_ids}"
+        
+        headers = self.get_headers(config)
+        return {
+            "url": url,
+            "headers": headers,
+            "map_ref_fields": None,
+            "method": config.method,
+            "type": 'composite_collection'
+        }
+    
+    def build_request(self, config, records, fields, operation):
+        match operation:
+            case 'create':
+                return self.create_built_request(config, records, fields, operation)
+            case 'update':
+                return self.update_built_request(config, records, fields, operation)
+            case 'delete':
+                return self.delete_built_request(config, records, fields, operation)
+            case _:
+                _logger.error(f"Unsupported operation: {operation}")
+                return None
 
 class CompositeBatchRequestBuilder(RequestBuilder):
-    def build_request(self, config, record, fields, operation):
-        authenticate = config.authenticate()
-        if authenticate['access_token']:
-            url = f"{config.endpoint}/services/data/v{config.version}/composite/batch"
-            headers = {
-                'Content-Type': 'application/json',
-                'Authorization': f"Bearer {authenticate['access_token']}"
-            }
-            body_request = SalesforceRestUtils.build_rest_composite_batch_fields(config, record, fields)
-            return {
-                "url": url,
-                "headers": headers,
-                'body': json.dumps(body_request['batchRequest'], default=SalesforceRestUtils.json_serial),
-                'map_ref_fields': fields['map_ref_fields'],
-                'method': config.method,
-                'type': 'composite_batch'
-            }
+    def create_built_request(self, config, records, fields, operation):        
+        url = f"{config.endpoint}/services/data/v{config.version}/composite/batch"
+        headers = self.get_headers(config)
+        body_request = SalesforceRestUtils.build_composite_batch_fields(config, records, fields)
 
+        return {
+            "url": url,
+            "headers": headers,
+            'body': json.dumps(body_request['batchRequest'], default=SalesforceRestUtils.json_serial),
+            'map_ref_fields': body_request['map_ref_fields'],
+            'method': config.method,
+            'type': 'composite_batch'
+        }
+    
+    def update_built_request(self, config, records, fields, operation):
+        url = f"{config.endpoint}/services/data/v{config.version}/composite/batch"
+        headers = self.get_headers(config)
+        body_request = SalesforceRestUtils.build_composite_batch_fields(config, records, fields)
+
+        return {
+            "url": url,
+            "headers": headers,
+            'body': json.dumps(body_request['batchRequest'], default=SalesforceRestUtils.json_serial),
+            'map_ref_fields': body_request['map_ref_fields'],
+            'method': config.method,
+            'type': 'composite_batch'
+        }
+    
+    def delete_built_request(self, config, records, fields, operation):        
+        url = f"{config.endpoint}/services/data/v{config.version}/composite/batch"
+        headers = self.get_headers(config)
+        body_request = SalesforceRestUtils.build_composite_batch_fields(config, records, fields)
+
+        return {
+            "url": url,
+            "headers": headers,
+            'map_ref_fields': body_request['map_ref_fields'],
+            'method': config.method,
+            'type': 'composite_batch'
+        }
+    
+    def build_request(self, config, records, fields, operation):
+        match operation:
+            case 'create':
+                return self.create_built_request(config, records, fields, operation)
+            case 'update':
+                return self.update_built_request(config, records, fields, operation)
+            case 'delete':
+                return self.delete_built_request(config, records, fields, operation)
+            case _:
+                _logger.error(f"Unsupported operation: {operation}")
+                return None
+            
 class BulkRequestBuilder(RequestBuilder):
     def build_request(self, config, records, operation):
-        authenticate = config.authenticate()
+        authenticate = self.authenticate(config)
         if authenticate['access_token']:
             url = f"{config.endpoint}/services/data/v{config.version}/jobs/ingest"
-            headers = {
-                'Content-Type': 'application/json',
-                'Authorization': f"Bearer {authenticate['access_token']}"
-            }
+            headers = self.get_headers(config)
             job_data = {
                 "object": config.sobject_api_name,
                 "contentType": "CSV",
