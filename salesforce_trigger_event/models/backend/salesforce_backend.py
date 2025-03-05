@@ -14,7 +14,7 @@ class SalesforceBackend(models.Model):
     username = fields.Char('Username', required=True)
     password = fields.Char('Password', required=True)
     security_token = fields.Char('Security Token', required=True)
-    refresh_token = fields.Char('Refresh Token', required=True)
+    refresh_token = fields.Char('Refresh Token')
     sandbox = fields.Boolean('Sandbox', default=False)
     api_version = fields.Char('API Version', default='v60.0')
     url = fields.Char('URL', required=True, default='https://login.salesforce.com')
@@ -41,7 +41,8 @@ class SalesforceBackend(models.Model):
         response = requests.post(url, data=payload, headers=headers)
         if response.status_code == 200:
             tokens = response.json()
-            self.write({'refresh_token': tokens.get('refresh_token')})
+            if tokens.get('refresh_token'):
+                self.write({'refresh_token': tokens.get('refresh_token')})
             return tokens
         else:
             if 'INVALID_SESSION_ID' in response.text:
