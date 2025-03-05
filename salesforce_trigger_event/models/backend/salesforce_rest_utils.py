@@ -14,6 +14,7 @@ class SalesforceRestUtils:
             _logger.error(f"GET request headers: {headers}")
             response = requests.get(url, headers=headers)
             response.raise_for_status()
+            _logger.error(f"GET request data: {response}")
             return response
         except requests.exceptions.RequestException as e:
             _logger.error(f"GET request failed: {e}")
@@ -26,7 +27,10 @@ class SalesforceRestUtils:
             _logger.error(f"POST request headers: {headers}")
             _logger.error(f"POST request data: {data}")
             response = requests.post(url, headers=headers, data=data)
+            _logger.error(f"POST request data: {response.json()}")
             response.raise_for_status()
+            _logger.error(f"POST request data: {response}")
+            _logger.error(f"POST request data: {response.json()}")
             return response
         except requests.exceptions.RequestException as e:
             _logger.error(f"POST request failed: {e}")
@@ -40,6 +44,7 @@ class SalesforceRestUtils:
             _logger.error(f"PUT request data: {data}")
             response = requests.put(url, headers=headers, data=data)
             response.raise_for_status()
+            _logger.error(f"PUT request data: {response}")
             return response
         except requests.exceptions.RequestException as e:
             _logger.error(f"PUT request failed: {e}")
@@ -53,6 +58,7 @@ class SalesforceRestUtils:
             _logger.error(f"PATCH request data: {data}")
             response = requests.patch(url, headers=headers, data=data)
             response.raise_for_status()
+            _logger.error(f"PATCH request data: {response}")
             return response
         except requests.exceptions.RequestException as e:
             _logger.error(f"PATCH request failed: {e}")
@@ -65,6 +71,7 @@ class SalesforceRestUtils:
             _logger.error(f"DELETE request headers: {headers}")
             response = requests.delete(url, headers=headers)
             response.raise_for_status()
+            _logger.error(f"DELETE request data: {response}")
             return response
         except requests.exceptions.RequestException as e:
             _logger.error(f"DELETE request failed: {e}")
@@ -249,12 +256,13 @@ class SalesforceRestUtils:
         })
     
     def _handle_failed_response(record, rest_response, context_with_skip_sync):
-        _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
-        record.with_context(context_with_skip_sync).write({
+        #_logger.error(f"Failed to update Salesforce record: {rest_response.content}")
+        if rest_response is not None:
+            record.with_context(context_with_skip_sync).write({
             'sf_integration_status': 'failed',
             'sf_integration_datetime': datetime.now(),
-            'sf_integration_error': rest_response.json()
-        })
+            'sf_integration_error': rest_response.text
+            })
 
 
     #SINGLE RECORD

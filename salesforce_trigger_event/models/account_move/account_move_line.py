@@ -48,7 +48,8 @@ class AccountMoveLine(models.Model):
         account_move_line = super(AccountMoveLine, self).create(vals)
         self._event('on_account_move_line_create').notify(account_move_line,fields=vals.keys())
         return account_move_line
-    
+
+    """
     @api.model
     def write(self, vals):
         if self.env.context.get('skip_sync'):
@@ -73,12 +74,12 @@ class AccountMoveLine(models.Model):
         print("Account Move Line Update")
         print(self)
         return self
-    
+    """
 
     @api.model
     def unlink(self):
         sf_ids = self.env['account.move.line'].search([('id', 'in', self.ids)]).mapped('sf_id')
-        self._event('on_account_move_line_delete').notify(self, sf_ids)
+        self._event('on_account_move_line_delete').notify(sf_ids)
         account_move_line = super(AccountMoveLine, self).unlink()
         return account_move_line
     
@@ -103,7 +104,7 @@ class AccountMoveLineListener(Component):
 
     @skip_if(lambda self, record, fields: not record or not fields)
     def on_account_move_line_update(self, record, fields):
-        rest_request = self.env['salesforce.rest.config'].build_request(records, fields, 'update', 'account_move_line_update')
+        rest_request = self.env['salesforce.rest.config'].build_request(record, fields, 'update', 'account_move_line_update')
         if rest_request:
             context_with_skip_sync = dict(self.env.context, skip_sync=True)
             rest_response = None

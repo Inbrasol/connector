@@ -49,6 +49,7 @@ class SaleOrderLine(models.Model):
         self._event('on_sale_order_line_create').notify(line, fields=vals.keys())
         return line
     
+    """
     @api.model
     def write(self, vals):
         _logger.error("on_sale_order_line_update initi: %s", vals)
@@ -72,6 +73,7 @@ class SaleOrderLine(models.Model):
         if len(changed_fields) > 0:
             self._event('on_sale_order_line_update').notify(self, changed_fields)
         return self
+    """
     
     @api.model
     def unlink(self):

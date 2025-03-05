@@ -77,7 +77,7 @@ class AccountMove(models.Model):
     @api.model
     def unlink(self):
         sf_ids = self.env['account.move'].search([('id', 'in', self.ids)]).mapped('sf_id')
-        self._event('on_account_move_delete').notify(self, sf_ids)
+        self._event('on_account_move_delete').notify(sf_ids)
         account_move = super(AccountMove, self).unlink()
         return account_move
     

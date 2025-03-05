@@ -77,7 +77,7 @@ class ResPartner(models.Model):
     @api.model
     def unlink(self):
         sf_ids = self.env['res.partner'].search([('id', 'in', self.ids)]).mapped('sf_id')
-        self._event('on_res_partner_delete').notify(self, sf_ids)
+        self._event('on_res_partner_delete').notify(sf_ids)
         return super(ResPartner, self).unlink()
 
 
