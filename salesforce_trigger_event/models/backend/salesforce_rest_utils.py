@@ -10,6 +10,8 @@ class SalesforceRestUtils:
     @staticmethod
     def get(url, headers):
         try:
+            _logger.error(f"GET request url: {url}")
+            _logger.error(f"GET request headers: {headers}")
             response = requests.get(url, headers=headers)
             response.raise_for_status()
             return response
@@ -20,6 +22,9 @@ class SalesforceRestUtils:
     @staticmethod
     def post(url, headers, data):
         try:
+            _logger.error(f"POST request url: {url}")
+            _logger.error(f"POST request headers: {headers}")
+            _logger.error(f"POST request data: {data}")
             response = requests.post(url, headers=headers, data=data)
             response.raise_for_status()
             return response
@@ -30,6 +35,9 @@ class SalesforceRestUtils:
     @staticmethod
     def put(url, headers, data):
         try:
+            _logger.error(f"PUT request url: {url}")
+            _logger.error(f"PUT request headers: {headers}")
+            _logger.error(f"PUT request data: {data}")
             response = requests.put(url, headers=headers, data=data)
             response.raise_for_status()
             return response
@@ -53,6 +61,8 @@ class SalesforceRestUtils:
     @staticmethod
     def delete(url, headers):
         try:
+            _logger.error(f"DELETE request url: {url}")
+            _logger.error(f"DELETE request headers: {headers}")
             response = requests.delete(url, headers=headers)
             response.raise_for_status()
             return response
@@ -75,100 +85,7 @@ class SalesforceRestUtils:
                     rich_input[key_to_replace] = new_value
         return json_data
 
-    @staticmethod
-    def update_sf_integration_status(record, rest_response, context_with_skip_sync):
-        if rest_response is None:
-            _logger.error("Salesforce response is None. Cannot update integration status.")
-            record.with_context(context_with_skip_sync).write({
-                'sf_integration_status': 'failed',
-                'sf_integration_datetime': datetime.now(),
-                'sf_integration_error': 'No response received from Salesforce'
-            })
-            return
-
-        timestamp = datetime.now()
-        response_json = {}
-
-        # Si la respuesta es 204 (No Content), simplemente marcar como éxito sin parsear JSON
-        if rest_response.status_code == 204:
-            record.with_context(context_with_skip_sync).write({
-                'sf_integration_status': 'success',
-                'sf_integration_datetime': timestamp
-            })
-            return
-
-        # Intentar parsear JSON solo si la respuesta tiene contenido
-        if rest_response.text:
-            try:
-                if rest_response.headers.get("Content-Type", "").startswith("application/json"):
-                    response_json = rest_response.json()
-            except ValueError:
-                _logger.error(f"Failed to parse JSON response: {rest_response.text}")
-
-        if rest_response.status_code in {200, 201}:
-            update_values = {
-                'sf_integration_status': 'success',
-                'sf_integration_datetime': timestamp
-            }
-            if response_json.get('id'):
-                update_values['sf_id'] = response_json['id']
-            record.with_context(context_with_skip_sync).write(update_values)
-        else:
-            error_message = response_json if response_json else rest_response.text or f"HTTP {rest_response.status_code} (No content)"
-            _logger.error(f"Salesforce update failed. Status: {rest_response.status_code}, Response: {error_message}")
-
-            record.with_context(context_with_skip_sync).write({
-                'sf_integration_status': 'failed',
-                'sf_integration_datetime': timestamp,
-                'sf_integration_error': error_message
-            })
-
-    def update_sf_integration_status_collection(records, rest_response, context_with_skip_sync):
-        if rest_response is None:
-            _logger.error("Salesforce response is None. Cannot update integration status.")
-            records.with_context(context_with_skip_sync).write({
-                'sf_integration_status': 'failed',
-                'sf_integration_datetime': datetime.now(),
-                'sf_integration_error': 'No response received from Salesforce'
-            })
-            return
-
-        timestamp = datetime.now()
-        response_json = {}
-
-        # Si la respuesta es 204 (No Content), simplemente marcar como éxito sin parsear JSON
-        if rest_response.status_code == 204:
-            records.with_context(context_with_skip_sync).write({
-                'sf_integration_status': 'success',
-                'sf_integration_datetime': timestamp
-            })
-            return
-
-        # Intentar parsear JSON solo si la respuesta tiene contenido
-        if rest_response.text:
-            try:
-                if rest_response.headers.get("Content-Type", "").startswith("application/json"):
-                    response_json = rest_response.json()
-            except ValueError:
-                _logger.error(f"Failed to parse JSON response: {rest_response.text}")
-
-        if rest_response.status_code in {200, 201}:
-            update_values = {
-                'sf_integration_status': 'success',
-                'sf_integration_datetime': timestamp
-            }
-            if response_json.get('id'):
-                update_values['sf_id'] = response_json['id']
-            records.with_context(context_with_skip_sync).write(update_values)
-        else:
-            error_message = response_json if response_json else rest_response.text or f"HTTP {rest_response.status_code} (No content)"
-            _logger.error(f"Salesforce update failed. Status: {rest_response.status_code}, Response: {error_message}")
-
-            records.with_context(context_with_skip_sync).write({
-                'sf_integration_status': 'failed',
-                'sf_integration_datetime': timestamp,
-                'sf_integration_error': error_message
-            })
+    #UPDATE RECORDS
     
     @staticmethod
     def build_rest_fields(config, record, fields):
@@ -229,6 +146,116 @@ class SalesforceRestUtils:
 
         _logger.error(f"fields_to_rest: {fields_to_rest}")
         return fields_to_rest
+
+    @staticmethod
+    def _update_sf_integration_status(record, rest_response, context_with_skip_sync):
+        if rest_response is None:
+            _logger.error("Salesforce response is None. Cannot update integration status.")
+            record.with_context(context_with_skip_sync).write({
+                'sf_integration_status': 'failed',
+                'sf_integration_datetime': datetime.now(),
+                'sf_integration_error': 'No response received from Salesforce'
+            })
+            return
+
+        timestamp = datetime.now()
+        response_json = {}
+
+        # Si la respuesta es 204 (No Content), simplemente marcar como éxito sin parsear JSON
+        if rest_response.status_code == 204:
+            record.with_context(context_with_skip_sync).write({
+                'sf_integration_status': 'success',
+                'sf_integration_datetime': timestamp
+            })
+            return
+
+        # Intentar parsear JSON solo si la respuesta tiene contenido
+        if rest_response.text:
+            try:
+                if rest_response.headers.get("Content-Type", "").startswith("application/json"):
+                    response_json = rest_response.json()
+            except ValueError:
+                _logger.error(f"Failed to parse JSON response: {rest_response.text}")
+
+        if rest_response.status_code in {200, 201}:
+            update_values = {
+                'sf_integration_status': 'success',
+                'sf_integration_datetime': timestamp
+            }
+            if response_json.get('id'):
+                update_values['sf_id'] = response_json['id']
+            record.with_context(context_with_skip_sync).write(update_values)
+        else:
+            error_message = response_json if response_json else rest_response.text or f"HTTP {rest_response.status_code} (No content)"
+            _logger.error(f"Salesforce update failed. Status: {rest_response.status_code}, Response: {error_message}")
+
+            record.with_context(context_with_skip_sync).write({
+                'sf_integration_status': 'failed',
+                'sf_integration_datetime': timestamp,
+                'sf_integration_error': error_message
+            })
+
+    def _handle_successful_response(self, rest_request, rest_response, context_with_skip_sync):
+        if rest_request['type'] in ['composite_collection','composite_tree','composite']:
+            SalesforceRestUtils._process_composite_response(self, rest_request, rest_response, context_with_skip_sync)
+        elif rest_request['type'] == 'rest':
+            SalesforceRestUtils._update_record_with_response(self, rest_request, rest_response, context_with_skip_sync)
+
+    def _process_composite_response(self, rest_request, rest_response, context_with_skip_sync):
+        response_data = rest_response.json()
+        if rest_request['type'] == 'composite':
+            SalesforceRestUtils._update_records_from_composite_response(self,response_data['compositeResponse'], rest_request, context_with_skip_sync)
+        elif rest_request['type'] == 'composite_tree':
+            SalesforceRestUtils._update_records_from_composite_response(self, response_data['results'], rest_request, context_with_skip_sync)
+        elif rest_request['type'] == 'composite_collection':
+            SalesforceRestUtils._update_sf_integration_status_collection(self, response_data, rest_request, context_with_skip_sync)
+
+    def _update_records_from_composite_response(self, responses, rest_request, context_with_skip_sync):
+        for record_response in responses:
+            if record_response['referenceId'] in rest_request['map_ref_fields']:
+                map_field = rest_request['map_ref_fields'][record_response['referenceId']]
+                record_to_update = self.env[map_field['model']].browse(map_field['id'])
+                record_to_update.with_context(context_with_skip_sync).write({
+                    'sf_id': record_response.get('id'),
+                    'sf_integration_status': 'success',
+                    'sf_integration_datetime': datetime.now()
+                })
+
+    def _update_sf_integration_status_collection(self, responses, rest_request, context_with_skip_sync):
+        for record_response in responses:
+            map_field = rest_request['map_ref_fields'][record_response['id']]
+            record_to_update = self.env[map_field['model']].browse(map_field['id'])
+            if record_response.get('success', False):
+                record_to_update.with_context(context_with_skip_sync).write({
+                    'sf_id': record_response.get('id'),
+                    'sf_integration_status': 'success',
+                    'sf_integration_datetime': datetime.now()
+                })
+            else:
+                error_message = record_response.get('errors', 'Unknown error')
+                _logger.error(f"Salesforce update failed for record {record_to_update.id}. Error: {error_message}")
+                record_to_update.with_context(context_with_skip_sync).write({
+                    'sf_integration_status': 'failed',
+                    'sf_integration_datetime': datetime.now(),
+                    'sf_integration_error': error_message
+                })
+
+    def _update_record_with_response(self, rest_request, rest_response, context_with_skip_sync):
+        record = self.env[rest_request['model']].browse(rest_request['id'])
+        record.with_context(context_with_skip_sync).write({
+            'sf_id': rest_response.json()['id'],
+            'sf_integration_status': 'success',
+            'sf_integration_datetime': datetime.now()
+        })
+    
+    def _handle_failed_response(record, rest_response, context_with_skip_sync):
+        _logger.error(f"Failed to update Salesforce record: {rest_response.content}")
+        record.with_context(context_with_skip_sync).write({
+            'sf_integration_status': 'failed',
+            'sf_integration_datetime': datetime.now(),
+            'sf_integration_error': rest_response.json()
+        })
+
 
     #SINGLE RECORD
     @staticmethod
@@ -306,7 +333,6 @@ class SalesforceRestUtils:
             'map_ref_fields': map_ref_fields
         }
     
-
     #COLLECTION RECORDS
     @staticmethod
     def build_rest_composite_fields(config, records, fields):
@@ -314,12 +340,12 @@ class SalesforceRestUtils:
         map_ref_fields = {}
         for record in records:
             map_ref_fields.update({f"New{config.sobject_api_name}{record.id}": {'id': record.id, 'model': config.odoo_model_id.model}})
-            fields = SalesforceRestUtils.build_rest_fields(config, record, fields)
+            record_fields = SalesforceRestUtils.build_rest_fields(config, record, fields)
             composite_request = {
                 "method": config.method,
                 "url": f"/services/data/v{config.version}/sobjects/{config.sobject_api_name}",
                 "referenceId": f"New{config.sobject_api_name}{record.id}",
-                "body": fields
+                "body": record_fields
             }
             request_fields['compositeRequest'].append(composite_request)
 
@@ -334,13 +360,13 @@ class SalesforceRestUtils:
         map_ref_fields = {}
         for record in records:
             map_ref_fields.update({f"New{config.sobject_api_name}{record.id}": {'id': record.id, 'model': config.odoo_model_id.model}})
-            fields = SalesforceRestUtils.build_rest_fields(config, record, fields)
+            record_fields = SalesforceRestUtils.build_rest_fields(config, record, fields)
             main_record = {
                 "attributes": {
                     "type": config.sobject_api_name,
                     "referenceId": f"New{config.sobject_api_name}{record.id}"
                 },
-                **fields
+                **record_fields
             }    
             tree_request["records"].append(main_record)
         return {

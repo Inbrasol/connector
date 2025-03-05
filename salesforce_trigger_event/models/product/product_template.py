@@ -45,8 +45,9 @@ class ProductTemplate(models.Model):
 
     @api.model
     def unlink(self):
+        sf_ids = self.env['product.template'].search([('id', 'in', self.ids)]).mapped('sf_id')
+        self._event('on_product_template_delete').notify(sf_ids)
         product = super(ProductTemplate, self).unlink()
-        self._event('on_product_template_delete').notify(product,product.id)
         return product
 
 class ProductProductListener(Component):
@@ -119,13 +120,12 @@ class ProductProductListener(Component):
                     case 'PUT':
                         rest_response = SalesforceRestUtils.put(rest_request['url'],rest_request['headers'],rest_request['body'])
 
-                SalesforceRestUtils.update_sf_integration_status(record, rest_response.status_code, rest_response.json(), context_with_skip_sync)
+                SalesforceRestUtils._update_sf_integration_status(record, rest_response.status_code, rest_response.json(), context_with_skip_sync)
 
-    @skip_if(lambda self: not self)
-    def on_product_template_delete(self,record,record_id):
-        if record.sf_id not in [False, None, '']:
-            rest_request = self.env['salesforce.rest.config'].build_request(record, None,'delete','product_template_delete')
-            if rest_request:
-                context_with_skip_sync = dict(self.env.context, skip_sync=True)
-                rest_response = SalesforceRestUtils.delete(rest_request['url'],rest_request['headers'])
-                SalesforceRestUtils.update_sf_integration_status(record, rest_response.status_code, rest_response.json(), context_with_skip_sync)
+    @skip_if(lambda self, records: not records)
+    def on_product_template_delete(self, records):
+        rest_request = self.env['salesforce.rest.config'].build_request(records, None, 'delete', 'product_template_delete')
+        if rest_request:
+            context_with_skip_sync = dict(self.env.context, skip_sync=True)
+            rest_response = SalesforceRestUtils.delete(rest_request['url'], rest_request['headers'])
+            SalesforceRestUtils._handle_successful_response(self, rest_request, rest_response, context_with_skip_sync)
