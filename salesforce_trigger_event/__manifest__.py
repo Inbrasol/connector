@@ -8,6 +8,7 @@
     'category': 'Sales',
     'depends': ['base', 'crm','component_event','sale','account','salesforce_fields'],
     'data': [
+        'data/ir_cron.xml',
         'security/ir.model.access.csv',
         'views/salesforce_backend_views.xml',
         'views/salesforce_rest_config_views.xml',
