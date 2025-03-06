@@ -99,6 +99,9 @@ class CrmLeadProduct(models.Model):
     
     @api.model
     def unlink(self):
+        if self.env.context.get('skip_sync'):
+            return super(CrmLeadProduct, self).unlink()
+        
         sf_ids = self.env['crm.lead.product'].search([('id', 'in', self.ids)]).mapped('sf_id')
         self._event('on_crm_lead_product_delete').notify(sf_ids)
         lead_product = super(CrmLeadProduct, self).unlink()

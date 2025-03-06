@@ -44,6 +44,9 @@ class CrmLead(models.Model):
     
     @api.model
     def create(self, vals):
+        if self.env.context.get('skip_sync'):
+            return super(CrmLead, self).create(vals)
+        
         lead = super(CrmLead, self).create(vals)
         self._event('on_crm_lead_create').notify(lead,fields=vals.keys())
         return lead
@@ -51,21 +54,13 @@ class CrmLead(models.Model):
 
     @api.model
     def write(self, vals):
-        _logger.error("on_sale_order initi: %s", vals)
-        _logger.error("on_sale_order initi: %s", self.env.context.get('skip_sync'))
         if self.env.context.get('skip_sync'):
-            super(CrmLead, self).write(vals)
-            return self
-        print("Vals")
-        print(vals)
+            return super(CrmLead, self).write(vals)
+        
         # Set skip_sync in context to avoid recursion
         context_with_skip_sync = dict(self.env.context, skip_sync=True)
         changed_fields = []
         for field, value in vals.items():
-            print("Field")
-            print(field)
-            print("Value")
-            print(value)
             if self._fields[field].type in ['one2many', 'many2many']:
                 continue
             elif isinstance(self[field], models.BaseModel):
@@ -77,14 +72,15 @@ class CrmLead(models.Model):
         if len(changed_fields) > 0:
             self._event('on_crm_lead_update').notify(self, changed_fields)
 
-        print("CRM Lead Update")
-        print(self)
         self._process_lines(vals)
         return self
     
 
     @api.model
     def unlink(self):
+        if self.env.context.get('skip_sync'):
+            return super(CrmLead, self).unlink()
+        
         sf_ids = self.env['crm.lead'].search([('id', 'in', self.ids)]).mapped('sf_id')
         self._event('on_sale_order_delete').notify(sf_ids)
         crmlead = super(CrmLead, self).unlink()

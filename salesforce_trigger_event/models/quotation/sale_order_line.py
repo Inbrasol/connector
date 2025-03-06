@@ -45,6 +45,9 @@ class SaleOrderLine(models.Model):
     
     @api.model
     def create(self, vals):
+        if self.env.context.get('skip_sync'):
+            return super(SaleOrderLine, self).create(vals)
+        
         line = super(SaleOrderLine, self).create(vals)
         self._event('on_sale_order_line_create').notify(line, fields=vals.keys())
         return line
@@ -77,9 +80,10 @@ class SaleOrderLine(models.Model):
     
     @api.model
     def unlink(self):
-        records_to_notify = self
+        if self.env.context.get('skip_sync'):
+            return super(SaleOrderLine, self).unlink()
+        
         sf_ids = self.env['sale.order.line'].search([('id', 'in', self.ids)]).mapped('sf_id')
-        _logger.error(f"records_to_notify: {records_to_notify}")
         self._event('on_sale_order_line_delete').notify(sf_ids)
         sale_order_line = super(SaleOrderLine, self).unlink()
         return sale_order_line

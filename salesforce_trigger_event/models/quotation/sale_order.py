@@ -44,6 +44,9 @@ class SaleOrder(models.Model):
     
     @api.model
     def create(self, vals):
+        if self.env.context.get('skip_sync'):
+            return super(SaleOrder, self).create(vals)
+        
         sale_order = super(SaleOrder, self).create(vals)
         print("Sale Order Create")
         self._event('on_sale_order_create').notify(sale_order, fields=vals.keys())
@@ -52,8 +55,7 @@ class SaleOrder(models.Model):
     @api.model
     def write(self, vals):
         if self.env.context.get('skip_sync'):
-            super(SaleOrder, self).write(vals)
-            return self
+            return super(SaleOrder, self).write(vals)
         
         # Set skip_sync in context to avoid recursion
         context_with_skip_sync = dict(self.env.context, skip_sync=True)
@@ -77,6 +79,9 @@ class SaleOrder(models.Model):
     
     @api.model
     def unlink(self):
+        if self.env.context.get('skip_sync'):
+            return super(SaleOrder, self).unlink()
+        
         sf_ids = self.env['sale.order'].search([('id', 'in', self.ids)]).mapped('sf_id')
         self._event('on_sale_order_delete').notify(sf_ids)
         order = super(SaleOrder, self).unlink()

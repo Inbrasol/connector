@@ -45,6 +45,9 @@ class ResPartner(models.Model):
     
     @api.model
     def create(self, vals):
+        if self.env.context.get('skip_sync'):
+            return super(ResPartner, self).create(vals)
+        
         partner = super(ResPartner, self).create(vals)
         self._event('on_res_partner_create').notify(partner, fields=vals.keys())
         return partner
@@ -52,8 +55,7 @@ class ResPartner(models.Model):
     @api.model
     def write(self, vals):
         if self.env.context.get('skip_sync'):
-            super(ResPartner, self).write(vals)
-            return self
+            return super(ResPartner, self).write(vals)
         
         # Set skip_sync in context to avoid recursion
         context_with_skip_sync = dict(self.env.context, skip_sync=True)
@@ -70,12 +72,13 @@ class ResPartner(models.Model):
         if len(changed_fields) > 0:
             self._event('on_res_partner_update').notify(self, changed_fields)
 
-        print("Res Partner Update")
-        print(self)
         return self
     
     @api.model
     def unlink(self):
+        if self.env.context.get('skip_sync'):
+            return super(ResPartner, self).unlink()
+        
         sf_ids = self.env['res.partner'].search([('id', 'in', self.ids)]).mapped('sf_id')
         self._event('on_res_partner_delete').notify(sf_ids)
         return super(ResPartner, self).unlink()

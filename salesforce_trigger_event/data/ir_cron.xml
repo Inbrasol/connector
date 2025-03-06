@@ -90,7 +90,7 @@
             <field name="active" eval="False"/>
         </record>
         
-        <!-- Cron job to create Product Template in Salesforce
+        <!-- Cron job to create Product Template in Salesforce-->
         <record id="ir_cron_create_product_template_to_sf" model="ir.cron">
             <field name="name">Crear Product Template Salesforce</field>
             <field name="model_id" ref="model_product_template"/>
@@ -102,6 +102,18 @@
             <field name="doall" eval="False"/>
             <field name="active" eval="False"/>
         </record>
-        -->
+
+        <record id="ir_cron_update_product_template_to_sf" model="ir.cron">
+            <field name="name">Actualizar Product Template Salesforce</field>
+            <field name="model_id" ref="model_product_template"/>
+            <field name="state">code</field>
+            <field name="code">model.update_lines_to_sf_by_cron()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">hours</field>
+            <field name="numbercall">-1</field>
+            <field name="doall" eval="False"/>
+            <field name="active" eval="False"/>
+        </record>
+
     </data>
 </odoo>

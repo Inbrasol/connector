@@ -45,6 +45,9 @@ class AccountMoveLine(models.Model):
     
     @api.model
     def create(self, vals):
+        if self.env.context.get('skip_sync'):
+            return super(AccountMoveLine, self).create(vals)
+        
         account_move_line = super(AccountMoveLine, self).create(vals)
         self._event('on_account_move_line_create').notify(account_move_line,fields=vals.keys())
         return account_move_line
@@ -78,6 +81,9 @@ class AccountMoveLine(models.Model):
 
     @api.model
     def unlink(self):
+        if self.env.context.get('skip_sync'):
+            return super(AccountMoveLine, self).unlink()
+        
         sf_ids = self.env['account.move.line'].search([('id', 'in', self.ids)]).mapped('sf_id')
         self._event('on_account_move_line_delete').notify(sf_ids)
         account_move_line = super(AccountMoveLine, self).unlink()
