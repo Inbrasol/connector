@@ -137,7 +137,7 @@ class SalesforceRestUtils:
             if field.default_value not in [None, '', False]:
                 fields_to_rest[field.salesforce_field] = get_default_value(field)
             elif field.odoo_field_id.name in fields:
-                value = getattr(record, field.odoo_field_id.name)
+                value = getattr(record, field.odoo_field_id.name) or None
                 if field.type == 'related' and value:
                     value = value[field.odoo_related_field_id.name]
                 if value not in [None, '', False]:
