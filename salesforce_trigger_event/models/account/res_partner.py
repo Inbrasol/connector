@@ -19,10 +19,15 @@ class ResPartner(models.Model):
         related_model = self.env['res.partner']
         fields = related_model._fields.keys()
         customer_category = self.env['res.partner.category'].search([('name', '=', 'Cliente')], limit=1)
+        if not customer_category:
+            _logger.error("Customer category not found")
+            return self
+        
         lines_create = related_model.search([
-            ('sf_id', 'in', [False, None, '']),
-            ('parent_id', 'in', [False, None, '']),
+            ('sf_id', '=', False),
             ('category_id', 'in', customer_category.ids),
+            ('is_company', '=', True),
+            ('company_id', '!=', False)
         ], limit=201)
         
         _logger.error("product_lines_create: %s", lines_create)
@@ -41,7 +46,7 @@ class ResPartner(models.Model):
             next_call_time = (datetime.now() + timedelta(minutes=2)).strftime('%Y-%m-%d %H:%M:%S')
             cron_job.write({'nextcall': next_call_time})
 
-        return self
+
     
     @api.model
     def create(self, vals):

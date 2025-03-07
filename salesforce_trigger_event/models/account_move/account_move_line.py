@@ -19,8 +19,8 @@ class AccountMoveLine(models.Model):
         related_model = self.env['account.move.line']
         fields = related_model._fields.keys()
         lines_create = related_model.search([
-            ('sf_id', 'in', [False, None, '']),
-            ('move_id.sf_id', 'not in', [False, None, '']),
+            ('sf_id', '=', False),
+            ('move_id.sf_id', '!=', False),
             ('parent_state', '=', 'posted'),
             ('move_type', 'in', ('out_invoice', 'out_refund')),
         ], limit=201)

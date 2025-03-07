@@ -20,9 +20,9 @@ class SaleOrderLine(models.Model):
         related_model = self.env['sale.order.line']
         fields = related_model._fields.keys()
         lines_create = related_model.search([
-            ('sf_id', 'in', [False, None, '']),
-            ('order_id.sf_id', 'not in', [False, None, '']),
-            ('product_id.sf_id', 'not in', [False, None, '']),
+            ('sf_id', '=', False),
+            ('order_id.sf_id', '!=', False),
+            ('product_id.sf_id', '!=', False),
         ], limit=201)
         
         _logger.error("sale_order_lines: %s", lines_create)

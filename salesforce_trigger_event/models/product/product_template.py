@@ -18,7 +18,7 @@ class ProductTemplate(models.Model):
         related_model = self.env['product.template']
         fields = related_model._fields.keys()
         lines_create = related_model.search([
-            ('sf_id', 'in', [False, None, '']),
+            ('sf_id', '=', False),
             ('sale_ok', '=', True),
             ('type', 'in', ('consu', 'product')),
             ('active', '=', True),
@@ -47,8 +47,8 @@ class ProductTemplate(models.Model):
         context_with_skip_sync = dict(self.env.context, skip_sync=True)
         related_model = self.env['product.template']
         lines_update = related_model.search([
-            ('sf_id', 'not in', [False, None, '']),
-            ('sf_pricebook_id', 'in', [False, None, '']),
+            ('sf_id', '!=', False),
+            ('sf_pricebook_id', '=', False),
             ('sale_ok', '=', True),
             ('type', 'in', ('consu', 'product')),
             ('active', '=', True),
