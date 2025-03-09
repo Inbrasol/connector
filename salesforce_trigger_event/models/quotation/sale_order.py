@@ -49,7 +49,8 @@ class SaleOrder(models.Model):
         
         sale_order = super(SaleOrder, self).create(vals)
         print("Sale Order Create")
-        self._event('on_sale_order_create').notify(sale_order, fields=vals.keys())
+        fields = self._fields.keys()
+        self._event('on_sale_order_create').notify(sale_order, fields=fields)
         return sale_order
     
     

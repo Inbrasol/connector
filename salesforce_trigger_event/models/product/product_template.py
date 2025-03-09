@@ -30,7 +30,14 @@ class ProductTemplate(models.Model):
             return self
 
         # Limit the number of product lines to process to a maximum of 200
-        lines_to_process = lines_create[:min(len(lines_create), 200)]
+        lines = lines_create[:200]
+        lines_to_process = []
+        # Ensure the product name does not exceed 255 characters
+        for line in lines:
+            line_data = line.copy_data()[0]
+            if len(line.name) > 255:
+                line_data['name'] = line.name[:255]
+            lines_to_process.append(line_data)
 
         self._event('on_product_template_create_bulk').notify(lines_to_process, fields)
 
@@ -100,7 +107,8 @@ class ProductTemplate(models.Model):
             return super(ProductTemplate, self).create(vals)
         
         product = super(ProductTemplate, self).create(vals)
-        self._event('on_product_template_create').notify(product,fields=vals.keys())
+        fields = self._fields.keys()
+        self._event('on_product_template_create').notify(product,fields=fields)
         return product
     
     def write(self, vals):

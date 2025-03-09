@@ -48,7 +48,8 @@ class AccountMove(models.Model):
             return super(AccountMove, self).create(vals)
         
         account_move = super(AccountMove, self).create(vals)
-        self._event('on_account_move_create').notify(account_move,fields=vals.keys())
+        fields = self._fields.keys()
+        self._event('on_account_move_create').notify(account_move,fields=fields)
         return account_move
     
     def write(self, vals):

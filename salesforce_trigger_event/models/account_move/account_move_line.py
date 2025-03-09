@@ -48,7 +48,8 @@ class AccountMoveLine(models.Model):
             return super(AccountMoveLine, self).create(vals)
         
         account_move_line = super(AccountMoveLine, self).create(vals)
-        self._event('on_account_move_line_create').notify(account_move_line,fields=vals.keys())
+        fields = self._fields.keys()
+        self._event('on_account_move_line_create').notify(account_move_line,fields=fields)
         return account_move_line
 
     """

@@ -48,7 +48,8 @@ class CrmLead(models.Model):
             return super(CrmLead, self).create(vals)
         
         lead = super(CrmLead, self).create(vals)
-        self._event('on_crm_lead_create').notify(lead,fields=vals.keys())
+        fields = self._fields.keys()
+        self._event('on_crm_lead_create').notify(lead,fields=fields)
         return lead
 
     def write(self, vals):

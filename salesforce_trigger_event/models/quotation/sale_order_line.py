@@ -49,7 +49,8 @@ class SaleOrderLine(models.Model):
             return super(SaleOrderLine, self).create(vals)
         
         line = super(SaleOrderLine, self).create(vals)
-        self._event('on_sale_order_line_create').notify(line, fields=vals.keys())
+        fields = self._fields.keys()
+        self._event('on_sale_order_line_create').notify(line, fields=fields)
         return line
     
     """
