@@ -43,7 +43,6 @@ class AccountMoveLine(models.Model):
 
         return self
     
-    @api.model
     def create(self, vals):
         if self.env.context.get('skip_sync'):
             return super(AccountMoveLine, self).create(vals)
@@ -79,7 +78,6 @@ class AccountMoveLine(models.Model):
         return self
     """
 
-    @api.model
     def unlink(self):
         if self.env.context.get('skip_sync'):
             return super(AccountMoveLine, self).unlink()

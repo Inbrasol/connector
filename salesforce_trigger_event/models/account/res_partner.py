@@ -46,24 +46,20 @@ class ResPartner(models.Model):
             next_call_time = (datetime.now() + timedelta(minutes=2)).strftime('%Y-%m-%d %H:%M:%S')
             cron_job.write({'nextcall': next_call_time})
 
-
-    
-    @api.model
     def create(self, vals):
         if self.env.context.get('skip_sync'):
             return super(ResPartner, self).create(vals)
-        
+
         partner = super(ResPartner, self).create(vals)
         self._event('on_res_partner_create').notify(partner, fields=vals.keys())
         return partner
     
-    @api.model
     def write(self, vals):
+        _logger.error(f"Update: {vals}")
+
         if self.env.context.get('skip_sync'):
             return super(ResPartner, self).write(vals)
-        
-        # Set skip_sync in context to avoid recursion
-        context_with_skip_sync = dict(self.env.context, skip_sync=True)
+    
         changed_fields = []
         for field, value in vals.items():
             if self._fields[field].type in ['one2many', 'many2many']:
@@ -73,13 +69,14 @@ class ResPartner(models.Model):
                     changed_fields.append(field)
             elif self[field] != value:
                 changed_fields.append(field)
-        super(ResPartner, self.with_context(context_with_skip_sync)).write(vals)
-        if len(changed_fields) > 0:
-            self._event('on_res_partner_update').notify(self, changed_fields)
 
-        return self
-    
-    @api.model
+        if len(changed_fields) > 0:
+            set_changed_fields = set(changed_fields)
+            self._event('on_res_partner_update').notify(self, set_changed_fields)
+        
+        context_with_skip_sync = dict(self.env.context, skip_sync=True)
+        return super(ResPartner, self.with_context(context_with_skip_sync)).write(vals)
+
     def unlink(self):
         if self.env.context.get('skip_sync'):
             return super(ResPartner, self).unlink()

@@ -42,8 +42,7 @@ class AccountMove(models.Model):
             cron_job.write({'nextcall': next_call_time})
 
         return self
-    
-    @api.model
+        
     def create(self, vals):
         if self.env.context.get('skip_sync'):
             return super(AccountMove, self).create(vals)
@@ -52,7 +51,6 @@ class AccountMove(models.Model):
         self._event('on_account_move_create').notify(account_move,fields=vals.keys())
         return account_move
     
-    @api.model
     def write(self, vals):
         if self.env.context.get('skip_sync'):
             return super(AccountMove, self).write(vals)
@@ -74,7 +72,6 @@ class AccountMove(models.Model):
 
         return self
     
-    @api.model
     def unlink(self):
         if self.env.context.get('skip_sync'):
             return super(AccountMove, self).unlink()

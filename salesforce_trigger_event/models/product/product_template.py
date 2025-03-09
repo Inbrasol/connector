@@ -95,7 +95,6 @@ class ProductTemplate(models.Model):
 
         return self
 
-    @api.model
     def create(self, vals):
         if self.env.context.get('skip_sync'):
             return super(ProductTemplate, self).create(vals)
@@ -104,7 +103,6 @@ class ProductTemplate(models.Model):
         self._event('on_product_template_create').notify(product,fields=vals.keys())
         return product
     
-    @api.model
     def write(self, vals):
         if self.env.context.get('skip_sync'):
             return super(ProductTemplate, self).write(vals)
@@ -128,7 +126,6 @@ class ProductTemplate(models.Model):
         print(self)
         return self
 
-    @api.model
     def unlink(self):
         if self.env.context.get('skip_sync'):
             return super(ProductTemplate, self).unlink()

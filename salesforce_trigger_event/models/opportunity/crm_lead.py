@@ -42,7 +42,7 @@ class CrmLead(models.Model):
 
         return self
     
-    @api.model
+    
     def create(self, vals):
         if self.env.context.get('skip_sync'):
             return super(CrmLead, self).create(vals)
@@ -51,8 +51,6 @@ class CrmLead(models.Model):
         self._event('on_crm_lead_create').notify(lead,fields=vals.keys())
         return lead
 
-
-    @api.model
     def write(self, vals):
         if self.env.context.get('skip_sync'):
             return super(CrmLead, self).write(vals)
@@ -75,8 +73,6 @@ class CrmLead(models.Model):
         self._process_lines(vals)
         return self
     
-
-    @api.model
     def unlink(self):
         if self.env.context.get('skip_sync'):
             return super(CrmLead, self).unlink()

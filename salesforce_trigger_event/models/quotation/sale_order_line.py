@@ -43,7 +43,7 @@ class SaleOrderLine(models.Model):
 
         return self
     
-    @api.model
+
     def create(self, vals):
         if self.env.context.get('skip_sync'):
             return super(SaleOrderLine, self).create(vals)
@@ -78,7 +78,7 @@ class SaleOrderLine(models.Model):
         return self
     """
     
-    @api.model
+
     def unlink(self):
         if self.env.context.get('skip_sync'):
             return super(SaleOrderLine, self).unlink()

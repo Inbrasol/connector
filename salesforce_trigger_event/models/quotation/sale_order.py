@@ -42,7 +42,7 @@ class SaleOrder(models.Model):
 
         return self
     
-    @api.model
+    
     def create(self, vals):
         if self.env.context.get('skip_sync'):
             return super(SaleOrder, self).create(vals)
@@ -52,7 +52,7 @@ class SaleOrder(models.Model):
         self._event('on_sale_order_create').notify(sale_order, fields=vals.keys())
         return sale_order
     
-    @api.model
+    
     def write(self, vals):
         if self.env.context.get('skip_sync'):
             return super(SaleOrder, self).write(vals)
@@ -77,7 +77,7 @@ class SaleOrder(models.Model):
         self._process_lines(vals)
         return self
     
-    @api.model
+    
     def unlink(self):
         if self.env.context.get('skip_sync'):
             return super(SaleOrder, self).unlink()

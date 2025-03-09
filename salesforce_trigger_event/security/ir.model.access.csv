@@ -4,3 +4,8 @@ access_salesforce_res_config_admin,salesforce.rest.config admin,model_salesforce
 access_salesforce_rest_fields_admin,salesforce.rest.fields admin,model_salesforce_rest_fields,base.group_system,1,1,1,1
 access_salesforce_rest_log_admin,salesforce.rest.log admin,model_salesforce_rest_log,base.group_system,1,1,1,1
 access_salesforce_record_type_admin,salesforce.record.type admin,model_salesforce_record_type,base.group_system,1,1,1,1
+access_salesforce_backend_sales,salesforce.backend sales,model_salesforce_backend,sales_team.group_sale_salesman,1,0,0,0
+access_salesforce_res_config_sales,salesforce.rest.config sales,model_salesforce_rest_config,sales_team.group_sale_salesman,1,0,0,0
+access_salesforce_rest_fields_sales,salesforce.rest.fields sales,model_salesforce_rest_fields,sales_team.group_sale_salesman,1,0,0,0
+access_salesforce_rest_log_sales,salesforce.rest.log sales,model_salesforce_rest_log,sales_team.group_sale_salesman,1,0,0,0
+access_salesforce_record_type_sales,salesforce.record.type sales,model_salesforce_record_type,sales_team.group_sale_salesman,1,0,0,0
