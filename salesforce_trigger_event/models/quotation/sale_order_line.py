@@ -121,12 +121,20 @@ class SaleOrderLineListener(Component):
                         rest_response = SalesforceRestUtils.patch(rest_request['url'],rest_request['headers'],rest_request['body'])
                     case 'PUT':
                         rest_response = SalesforceRestUtils.put(rest_request['url'],rest_request['headers'],rest_request['body'])
-                SalesforceRestUtils._update_sf_integration_status(record, rest_response.status_code, rest_response.json(), context_with_skip_sync)
-    
+                
+                if rest_response and rest_response.status_code in [200, 201]:
+                    SalesforceRestUtils._update_sf_integration_status(record, rest_response.status_code, rest_response, context_with_skip_sync)
+                else:
+                    SalesforceRestUtils._handle_failed_response(record, rest_response, context_with_skip_sync)
+
+
     @skip_if(lambda self, records: not records)
     def on_sale_order_line_delete(self, records):
         rest_request = self.env['salesforce.rest.config'].build_request(records, None, 'delete', 'sale_order_line_delete')
         if rest_request:
             context_with_skip_sync = dict(self.env.context, skip_sync=True)
             rest_response = SalesforceRestUtils.delete(rest_request['url'], rest_request['headers'])
-            SalesforceRestUtils._handle_successful_response(self, rest_request, rest_response, context_with_skip_sync)
+            if rest_response and rest_response.status_code in [200, 201]:
+                SalesforceRestUtils._handle_failed_response(records, rest_response, context_with_skip_sync)
+            else:
+                SalesforceRestUtils._update_sf_integration_status(records, rest_response.status_code, rest_response, context_with_skip_sync)
