@@ -21,7 +21,7 @@ class CrmLeadProduct(models.Model):
         product_lines_create = related_model.search([
             ('sf_id', '=', False),
             ('lead_id.sf_id', '!=', False),
-            ('product_tmpl_id.sf_id', '!=', False),
+            ('product_id.sf_id', '!=', False),
         ], limit=201)
         _logger.error("product_lines_create: %s", product_lines_create)
         
