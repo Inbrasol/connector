@@ -230,6 +230,8 @@ class SalesforceRestUtils:
 
     def _update_sf_integration_status_collection(self, responses, rest_request, context_with_skip_sync):
         for record_response in responses:
+            _logger.error(f"record_response: {record_response}")
+            """
             map_field = rest_request['map_ref_fields'][record_response['id']]
             record_to_update = self.env[map_field['model']].browse(map_field['id'])
             if record_response.get('success', False):
@@ -245,7 +247,8 @@ class SalesforceRestUtils:
                     'sf_integration_status': 'failed',
                     'sf_integration_datetime': datetime.now(),
                     'sf_integration_error': error_message
-                })
+                })"
+            """
 
     def _update_record_with_response(self, rest_request, rest_response, context_with_skip_sync):
         record = self.env[rest_request['model']].browse(rest_request['id'])
