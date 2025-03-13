@@ -20,6 +20,7 @@ class SaleOrder(models.Model):
         fields = related_model._fields.keys()
         lines_create = related_model.search([
             ('sf_id', '=', False),
+            ('opportunity_id.sf_id', '!=', False),
             ('partner_id.sf_id', '!=', False),
             ('partner_id.is_company', '=', True),
             ('state', 'in', ['draft', 'sent', 'sale']),
