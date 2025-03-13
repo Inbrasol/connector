@@ -108,23 +108,22 @@ class SaleOrderLineListener(Component):
             else:
                 SalesforceRestUtils._handle_failed_response(record, rest_response, context_with_skip_sync)
 
-    @skip_if(lambda self, record, fields: not record or not fields)
-    def on_sale_order_line_update(self, record, fields):
-        if record.sf_id not in [False, None, '']:
-            rest_request = self.env['salesforce.rest.config'].build_request(record, fields, 'update', 'sale_order_line_update')
-            if rest_request:
-                context_with_skip_sync = dict(self.env.context, skip_sync=True)
-                rest_response = None
-                match rest_request['method']:
-                    case 'PATCH':
-                        rest_response = SalesforceRestUtils.patch(rest_request['url'],rest_request['headers'],rest_request['body'])
-                    case 'PUT':
-                        rest_response = SalesforceRestUtils.put(rest_request['url'],rest_request['headers'],rest_request['body'])
-                
-                if rest_response and rest_response.status_code in [200, 201]:
-                    SalesforceRestUtils._update_sf_integration_status(record, rest_response.status_code, rest_response, context_with_skip_sync)
-                else:
-                    SalesforceRestUtils._handle_failed_response(record, rest_response, context_with_skip_sync)
+    @skip_if(lambda self, records, fields: not records or not fields)
+    def on_sale_order_line_update(self, records, fields):
+        rest_request = self.env['salesforce.rest.config'].build_request(records, fields, 'update', 'sale_order_line_update')
+        if rest_request:
+            context_with_skip_sync = dict(self.env.context, skip_sync=True)
+            rest_response = None
+            match rest_request['method']:
+                case 'PATCH':
+                    rest_response = SalesforceRestUtils.patch(rest_request['url'], rest_request['headers'], rest_request['body'])
+                case 'PUT':
+                    rest_response = SalesforceRestUtils.put(rest_request['url'], rest_request['headers'], rest_request['body'])
+            
+            if rest_response and rest_response.status_code in [200, 201]:
+                SalesforceRestUtils._handle_successful_response(self, rest_request, rest_response, context_with_skip_sync)
+            else:
+                SalesforceRestUtils._handle_failed_response(records, rest_response, context_with_skip_sync)
 
 
     @skip_if(lambda self, records: not records)
