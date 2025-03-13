@@ -131,17 +131,24 @@ class SalesforceRestUtils:
                 return date_mappings.get(field.default_value, lambda: date.today())()
             elif field.type == 'datetime':
                 return datetime_mappings.get(field.default_value, lambda: date.today().strftime('%Y-%m-%dT%H:%M:%SZ'))()
+            elif field.type == 'float':
+                return float(field.default_value)
+            elif field.type == 'integer':
+                return int(field.default_value)
             return field.default_value
         
         for field in config.rest_fields.filtered(lambda f: f.active):
-            if field.default_value not in [None, '', False]:
+            value = getattr(record, field.odoo_field_id.name) or None
+
+            if field.default_value not in [None, '', False] and value in [None, '', False]:
                 fields_to_rest[field.salesforce_field] = get_default_value(field)
+
             elif field.odoo_field_id.name in fields:
-                value = getattr(record, field.odoo_field_id.name) or None
                 if field.type == 'related' and value:
                     value = value[field.odoo_related_field_id.name]
                 if value not in [None, '', False]:
                     fields_to_rest[field.salesforce_field] = value
+        
             elif field.is_always_update:
                 fields_to_rest[field.salesforce_field] = getattr(record, field.odoo_field_id.name)
 
