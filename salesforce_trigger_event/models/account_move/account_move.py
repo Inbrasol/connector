@@ -34,7 +34,7 @@ class AccountMove(models.Model):
         # Limit the number of product lines to process to a maximum of 200
         lines_to_process = lines_create[:min(len(lines_create), 200)]
 
-        self._event('on_account_move_create').notify(lines_to_process, fields)
+        self._event('on_account_move_create_bulk').notify(lines_to_process, fields)
 
         # If there are more than 200 product lines, schedule the next batch
         if len(lines_create) > 200:
@@ -124,6 +124,18 @@ class AccountMoveListener(Component):
             return SalesforceRestUtils.post(rest_request['url'], rest_request['headers'], rest_request['body'])
         _logger.warning(f"Unsupported request type: {rest_request['type']}")
         return None
+    
+    @skip_if(lambda self, records, fields: not records or not fields)
+    def on_account_move_create_bulk(self, records, fields):
+        rest_request = self.env['salesforce.rest.config'].build_request(records, fields, 'create', 'account_move_create_bulk')
+        if rest_request:
+            context_with_skip_sync = dict(self.env.context, skip_sync=True)
+            rest_response = SalesforceRestUtils.post(rest_request['url'], rest_request['headers'], rest_request['body'])
+            if rest_response and rest_response.status_code in [200, 201]:
+                SalesforceRestUtils._handle_successful_response(self, rest_request, rest_response, context_with_skip_sync)
+            else:
+                SalesforceRestUtils._handle_failed_response(records, rest_response, context_with_skip_sync)
+    
 
     @skip_if(lambda self, record, fields: not record or not fields)
     def on_account_move_update(self, record, fields):

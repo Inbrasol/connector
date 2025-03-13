@@ -110,7 +110,6 @@ class SaleOrderLineListener(Component):
 
     @skip_if(lambda self, record, fields: not record or not fields)
     def on_sale_order_line_update(self, record, fields):
-        _logger.error("on_sale_order_line_update: %s", record.sf_id)
         if record.sf_id not in [False, None, '']:
             rest_request = self.env['salesforce.rest.config'].build_request(record, fields, 'update', 'sale_order_line_update')
             if rest_request:
