@@ -21,8 +21,7 @@ class AccountMove(models.Model):
         lines_create = related_model.search([
             ('sf_id', '=', False),
             ('sale_order_id.sf_id', '!=', False),
-            ('partner_id.sf_id', '!=', False),
-            ('partner_id.is_company', '=', True),
+            ('partner_id.commercial_partner_id.sf_id', '!=', False),
             ('state', '=', 'posted'),
             ('move_type', 'in', ('out_invoice', 'out_refund')),
         ], limit=201)
