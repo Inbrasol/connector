@@ -293,7 +293,7 @@ class SalesforceRestUtils:
             }
         }
         for line in record[config.child_field_name.name].filtered_domain(eval(config.child_rel_filter)):
-            ref_key = f"New{config.sobject_api_name}" + str(len(map_ref_fields) + 1)
+            ref_key = f"New{config.line_rest_config_id.sobject_api_name}" + str(len(map_ref_fields) + 1)
             map_ref_fields.update({ref_key: {'id': line.id, 'model': config.line_rest_config_id.odoo_model_id.model}})
             childs_fields = SalesforceRestUtils.build_rest_fields(config.line_rest_config_id, line, line._fields)
             fields_to_remove = config.line_rest_config_id.rest_fields.filtered(lambda f: f.remove_to_composite)
