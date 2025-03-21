@@ -107,7 +107,11 @@ class Base(models.AbstractModel):
 
     def write(self, vals):
         result = super().write(vals)
-        fields = list(vals.keys())
+        if isinstance(vals, dict):
+            fields = list(vals.keys())
+        else:
+            fields = []
+        
         for record in self:
             self._event("on_record_write").notify(record, fields=fields)
         return result
