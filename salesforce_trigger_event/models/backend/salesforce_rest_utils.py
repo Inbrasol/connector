@@ -137,6 +137,22 @@ class SalesforceRestUtils:
                 return int(field.default_value)
             return field.default_value
         
+        def convert_to_sf_type(value, field):
+
+            if field.type == 'float':
+                return float(value)
+            elif field.type == 'integer':
+                return int(value)
+            elif field.type == 'boolean':
+                return bool(value)
+            elif field.type == 'date':
+                return value.strftime('%Y-%m-%d')
+            elif field.type == 'datetime':
+                return value.strftime('%Y-%m-%dT%H:%M:%SZ')
+            
+            return value
+        
+        
         for field in config.rest_fields.filtered(lambda f: f.active):
             value = getattr(record, field.odoo_field_id.name) or None
 
@@ -145,12 +161,12 @@ class SalesforceRestUtils:
 
             elif field.odoo_field_id.name in fields:
                 if field.type == 'related' and value:
-                    value = value[field.odoo_related_field_id.name]
+                    value = convert_to_sf_type(value[field.odoo_related_field_id.name], field)
                 if value not in [None, '', False]:
-                    fields_to_rest[field.salesforce_field] = value
+                    fields_to_rest[field.salesforce_field] = convert_to_sf_type(value, field)
         
             elif field.is_always_update:
-                fields_to_rest[field.salesforce_field] = getattr(record, field.odoo_field_id.name)
+                fields_to_rest[field.salesforce_field] = convert_to_sf_type(getattr(record, field.odoo_field_id.name), field)
 
         for record_type in config.record_types.filtered(lambda r: r.active):
             related_value = getattr(record, record_type.odoo_field_id.name)
