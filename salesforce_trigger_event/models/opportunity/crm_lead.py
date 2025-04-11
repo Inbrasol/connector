@@ -43,9 +43,40 @@ class CrmLead(models.Model):
 
         return self
     
+    def create_lines_to_sf(self):
+        _logger.error("create_lines_to_sf: %s", self)
+        # Fetch lines that need to be created in Salesforce
+        lines_create_ids = self.lead_product_ids.filtered(lambda line: not line.sf_id).ids
+        if not lines_create_ids:
+            return self
+        
+        related_model = self.env['crm.lead.product']
+        fields_dict = related_model._fields
+        # Filter lines that are not already synced with Salesforce
+        lines_create = related_model.search([
+            ('id', 'in', lines_create_ids),
+            ('sf_id', '=', False),
+            ('lead_id.sf_id', '!=', False),
+            ('product_id.sf_id', '!=', False),
+        ], limit=201)
+        
+        _logger.error("crm_lead_product_lines: %s", lines_create)
+        
+        if not lines_create:
+            return self
+
+        # Limit the number of product lines to process to a maximum of 200
+        lines_to_process = lines_create[:min(len(lines_create), 200)]
+        self.env['crm.lead.product']._event('on_crm_lead_product_create').notify(lines_to_process, fields_dict)
+
+        return self
+    
     
     def create(self, vals):
         if self.env.context.get('skip_sync'):
+            return super(CrmLead, self).create(vals)
+        
+        if self.sf_id not in [False, None, '']:
             return super(CrmLead, self).create(vals)
         
         lead = super(CrmLead, self).create(vals)
@@ -55,6 +86,9 @@ class CrmLead(models.Model):
 
     def write(self, vals):
         if self.env.context.get('skip_sync'):
+            return super(CrmLead, self).write(vals)
+        
+        if self.sf_id in [False, None, '']:
             return super(CrmLead, self).write(vals)
         
         # Set skip_sync in context to avoid recursion
@@ -76,15 +110,20 @@ class CrmLead(models.Model):
         return self
     
     def unlink(self):
-        if self.env.context.get('skip_sync'):
-            return super(CrmLead, self).unlink()
-        
-        sf_ids = self.env['crm.lead'].search([('id', 'in', self.ids)]).mapped('sf_id')
-        self._event('on_sale_order_delete').notify(sf_ids)
-        crmlead = super(CrmLead, self).unlink()
-        return crmlead
-    
+        _logger.error("→ Intentando eliminar crm.lead con contexto skip_sync: %s", self.env.context.get('skip_sync'))
+        # Buscar los sf_ids de los registros que se quieren eliminar
+        crm_leads = self.env['crm.lead'].browse(self.ids)
+        sf_ids = [sf_id for sf_id in crm_leads.mapped('sf_id') if sf_id]  # Solo valores no vacíos
 
+        _logger.error("→ sf_ids encontrados: %s", sf_ids)
+        if len(sf_ids) == 0:
+            _logger.error("→ No se encontraron sf_ids, se eliminará normalmente.")
+            return super(CrmLead, self).unlink()
+        else:
+            _logger.error("→ Se encontraron sf_ids, notificando evento antes de eliminar.")
+            self._event('on_crm_lead_unlink').notify(crm_leads)
+            return super(CrmLead, self).unlink()
+    
     def _process_lines(self, vals):
         product_lines_update_ids = []
         related_model = self.env['crm.lead.product']
@@ -99,6 +138,7 @@ class CrmLead(models.Model):
             self.env['crm.lead.product']._event('on_crm_lead_product_update').notify(product_lines, fields_dict)
         
         return self
+
 
 class CrmLeadEventListener(Component):
     _name = 'crm.lead.listener'

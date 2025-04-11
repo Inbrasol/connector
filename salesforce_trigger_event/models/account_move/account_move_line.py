@@ -43,6 +43,7 @@ class AccountMoveLine(models.Model):
 
         return self
     
+    """
     def create(self, vals):
         if self.env.context.get('skip_sync'):
             return super(AccountMoveLine, self).create(vals)
@@ -52,7 +53,6 @@ class AccountMoveLine(models.Model):
         self._event('on_account_move_line_create').notify(account_move_line,fields=fields)
         return account_move_line
 
-    """
     @api.model
     def write(self, vals):
         if self.env.context.get('skip_sync'):
@@ -80,14 +80,19 @@ class AccountMoveLine(models.Model):
     """
 
     def unlink(self):
-        if self.env.context.get('skip_sync'):
+        _logger.error("→ Intentando eliminar account.move.line con contexto skip_sync: %s", self.env.context.get('skip_sync'))
+        # Buscar los sf_ids de las líneas que se quieren eliminar
+        account_move_lines = self.env['account.move.line'].browse(self.ids)
+        sf_ids = [sf_id for sf_id in account_move_lines.mapped('sf_id') if sf_id]  # Solo valores no vacíos
+
+        _logger.error("→ sf_ids encontrados: %s", sf_ids)
+        if len(sf_ids) == 0:
+            _logger.error("→ No se encontraron sf_ids, se eliminará normalmente.")
             return super(AccountMoveLine, self).unlink()
-        
-        sf_ids = self.env['account.move.line'].search([('id', 'in', self.ids)]).mapped('sf_id')
-        self._event('on_account_move_line_delete').notify(sf_ids)
-        account_move_line = super(AccountMoveLine, self).unlink()
-        return account_move_line
-    
+        else:
+            _logger.error("→ Se encontraron sf_ids, notificando evento antes de eliminar.")
+            self._event('on_account_move_line_delete').notify(sf_ids)
+            return super(AccountMoveLine, self).unlink()
 
 
 class AccountMoveLineListener(Component):

@@ -52,9 +52,6 @@ class CrmLeadProduct(models.Model):
             
         return lead_product
 
-    """
-    
-    """
     @api.model
     def write(self, vals):
         # Call Sync Product Template to Salesforce
@@ -98,13 +95,20 @@ class CrmLeadProduct(models.Model):
     """
     
     def unlink(self):
-        if self.env.context.get('skip_sync'):
-            return super(CrmLeadProduct, self).unlink()
+        _logger.error("→ Intentando eliminar crm.lead.product con contexto skip_sync: %s", self.env.context.get('skip_sync'))
         
-        sf_ids = self.env['crm.lead.product'].search([('id', 'in', self.ids)]).mapped('sf_id')
-        self._event('on_crm_lead_product_delete').notify(sf_ids)
-        lead_product = super(CrmLeadProduct, self).unlink()
-        return lead_product
+        # Buscar los sf_ids de los registros que se quieren eliminar
+        lead_products = self.env['crm.lead.product'].browse(self.ids)
+        sf_ids = [sf_id for sf_id in lead_products.mapped('sf_id') if sf_id]  # Solo valores no vacíos
+
+        _logger.error("→ sf_ids encontrados: %s", sf_ids)
+        if len(sf_ids) == 0:
+            _logger.error("→ No se encontraron sf_ids, se eliminará normalmente.")
+            return super(CrmLeadProduct, self).unlink()
+        else:
+            _logger.error("→ Se encontraron sf_ids, notificando evento antes de eliminar.")
+            self._event('on_crm_lead_product_delete').notify(sf_ids)
+            return super(CrmLeadProduct, self).unlink()
     
 
 

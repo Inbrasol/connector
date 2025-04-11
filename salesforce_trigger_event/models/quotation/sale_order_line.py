@@ -43,7 +43,7 @@ class SaleOrderLine(models.Model):
 
         return self
     
-
+    """
     def create(self, vals):
         if self.env.context.get('skip_sync'):
             return super(SaleOrderLine, self).create(vals)
@@ -53,7 +53,6 @@ class SaleOrderLine(models.Model):
         self._event('on_sale_order_line_create').notify(line, fields=fields)
         return line
     
-    """
     @api.model
     def write(self, vals):
         _logger.error("on_sale_order_line_update initi: %s", vals)
@@ -81,13 +80,19 @@ class SaleOrderLine(models.Model):
     
 
     def unlink(self):
-        if self.env.context.get('skip_sync'):
+        _logger.error("→ Intentando eliminar sale.order.line con contexto skip_sync: %s", self.env.context.get('skip_sync'))
+        # Buscar los sf_ids de las líneas que se quieren eliminar
+        sale_order_lines = self.env['sale.order.line'].browse(self.ids)
+        sf_ids = [sf_id for sf_id in sale_order_lines.mapped('sf_id') if sf_id]  # Solo valores no vacíos
+
+        _logger.error("→ sf_ids encontrados: %s", sf_ids)
+        if len(sf_ids) == 0:
+            _logger.error("→ No se encontraron sf_ids, se eliminará normalmente.")
             return super(SaleOrderLine, self).unlink()
-        
-        sf_ids = self.env['sale.order.line'].search([('id', 'in', self.ids)]).mapped('sf_id')
-        self._event('on_sale_order_line_delete').notify(sf_ids)
-        sale_order_line = super(SaleOrderLine, self).unlink()
-        return sale_order_line
+        else:
+            _logger.error("→ Se encontraron sf_ids, notificando evento antes de eliminar.")
+            self._event('on_sale_order_line_delete').notify(sf_ids)
+            return super(SaleOrderLine, self).unlink()
     
 
 class SaleOrderLineListener(Component):
@@ -132,7 +137,5 @@ class SaleOrderLineListener(Component):
         if rest_request:
             context_with_skip_sync = dict(self.env.context, skip_sync=True)
             rest_response = SalesforceRestUtils.delete(rest_request['url'], rest_request['headers'])
-            if rest_response and rest_response.status_code in [200, 201]:
+            if rest_response and rest_response.status_code not in [200, 201]:
                 SalesforceRestUtils._handle_failed_response(records, rest_response, context_with_skip_sync)
-            else:
-                SalesforceRestUtils._update_sf_integration_status(records, rest_response.status_code, rest_response, context_with_skip_sync)

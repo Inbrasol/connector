@@ -44,8 +44,38 @@ class AccountMove(models.Model):
 
         return self
         
+    def create_lines_to_sf(self):
+        _logger.error("create_lines_to_sf: %s", self)
+        # Fetch lines that need to be created in Salesforce
+        lines_create_ids = self.line_ids.filtered(lambda line: not line.sf_id).ids
+        if not lines_create_ids:
+            return self
+        
+        related_model = self.env['account.move.line']
+        fields_dict = related_model._fields
+        # Filter lines that are not already synced with Salesforce
+        lines_create = related_model.search([
+            ('id', 'in', lines_create_ids),
+            ('sf_id', '=', False),
+            ('move_id.sf_id', '!=', False),
+            ('product_id.sf_id', '!=', False),
+        ], limit=201)
+        
+        _logger.error("account_move_lines: %s", lines_create)
+        
+        if not lines_create:
+            return self
+
+        # Limit the number of product lines to process to a maximum of 200
+        lines_to_process = lines_create[:min(len(lines_create), 200)]
+        self.env['account.move.line']._event('on_account_move_line_create').notify(lines_to_process, fields_dict)
+        return self
+    
     def create(self, vals):
         if self.env.context.get('skip_sync'):
+            return super(AccountMove, self).create(vals)
+        
+        if self.sf_id not in [False, None, '']:
             return super(AccountMove, self).create(vals)
         
         account_move = super(AccountMove, self).create(vals)
@@ -55,6 +85,9 @@ class AccountMove(models.Model):
     
     def write(self, vals):
         if self.env.context.get('skip_sync'):
+            return super(AccountMove, self).write(vals)
+        
+        if self.sf_id in [False, None, '']:
             return super(AccountMove, self).write(vals)
         
         # Set skip_sync in context to avoid recursion
@@ -75,13 +108,19 @@ class AccountMove(models.Model):
         return self
     
     def unlink(self):
-        if self.env.context.get('skip_sync'):
+        _logger.error("→ Intentando eliminar account.move con contexto skip_sync: %s", self.env.context.get('skip_sync'))
+        # Buscar los sf_ids de los registros que se quieren eliminar
+        account_moves = self.env['account.move'].browse(self.ids)
+        sf_ids = [sf_id for sf_id in account_moves.mapped('sf_id') if sf_id]  # Solo valores no vacíos
+
+        _logger.error("→ sf_ids encontrados: %s", sf_ids)
+        if len(sf_ids) == 0:
+            _logger.error("→ No se encontraron sf_ids, se eliminará normalmente.")
             return super(AccountMove, self).unlink()
-        
-        sf_ids = self.env['account.move'].search([('id', 'in', self.ids)]).mapped('sf_id')
-        self._event('on_account_move_delete').notify(sf_ids)
-        account_move = super(AccountMove, self).unlink()
-        return account_move
+        else:
+            _logger.error("→ Se encontraron sf_ids, notificando evento antes de eliminar.")
+            self._event('on_account_move_delete').notify(sf_ids)
+            return super(AccountMove, self).unlink()
     
     def _process_lines(self, vals):
         account_move_lines_update_ids = []

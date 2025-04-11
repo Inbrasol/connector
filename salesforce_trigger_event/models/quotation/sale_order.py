@@ -43,9 +43,40 @@ class SaleOrder(models.Model):
 
         return self
     
+    def create_lines_to_sf(self):
+        _logger.error("create_lines_to_sf: %s", self)
+        # Fetch lines that need to be created in Salesforce
+        lines_create_ids = self.order_line.filtered(lambda line: not line.sf_id).ids
+        if not lines_create_ids:
+            return self
+        
+        related_model = self.env['sale.order.line']
+        fields_dict = related_model._fields
+        # Filter lines that are not already synced with Salesforce
+        lines_create = related_model.search([
+            ('id', 'in', lines_create_ids),
+            ('sf_id', '=', False),
+            ('order_id.sf_id', '!=', False),
+            ('product_id.sf_id', '!=', False),
+        ], limit=201)
+        
+        _logger.error("sale_order_lines: %s", lines_create)
+        
+        if not lines_create:
+            return self
+
+        # Limit the number of product lines to process to a maximum of 200
+        lines_to_process = lines_create[:min(len(lines_create), 200)]
+        self.env['sale.order.line']._event('on_sale_order_line_create').notify(lines_to_process, fields_dict)
+
+        return self
+    
     
     def create(self, vals):
         if self.env.context.get('skip_sync'):
+            return super(SaleOrder, self).create(vals)
+        
+        if self.sf_id not in [False, None, '']:
             return super(SaleOrder, self).create(vals)
         
         sale_order = super(SaleOrder, self).create(vals)
@@ -57,6 +88,9 @@ class SaleOrder(models.Model):
     
     def write(self, vals):
         if self.env.context.get('skip_sync'):
+            return super(SaleOrder, self).write(vals)
+        
+        if self.sf_id in [False, None, '']:
             return super(SaleOrder, self).write(vals)
         
         # Set skip_sync in context to avoid recursion
@@ -81,13 +115,20 @@ class SaleOrder(models.Model):
     
     
     def unlink(self):
-        if self.env.context.get('skip_sync'):
+        _logger.error("→ Intentando eliminar sale.order con contexto skip_sync: %s", self.env.context.get('skip_sync'))
+        # Buscar los sf_ids de las órdenes que se quieren eliminar
+        sale_orders = self.env['sale.order'].browse(self.ids)
+        sf_ids = [sf_id for sf_id in sale_orders.mapped('sf_id') if sf_id]  # Solo valores no vacíos
+
+        _logger.error("→ sf_ids encontrados: %s", sf_ids)
+        if len(sf_ids) == 0:
+            _logger.error("→ No se encontraron sf_ids, se eliminará normalmente.")
             return super(SaleOrder, self).unlink()
-        
-        sf_ids = self.env['sale.order'].search([('id', 'in', self.ids)]).mapped('sf_id')
-        self._event('on_sale_order_delete').notify(sf_ids)
-        order = super(SaleOrder, self).unlink()
-        return order
+        else:
+            _logger.error("→ Se encontraron sf_ids, notificando evento antes de eliminar.")
+            self._event('on_sale_order_delete').notify(sf_ids)
+            return super(SaleOrder, self).unlink()
+    
     
     def _process_lines(self, vals):
         sale_order_lines_update_ids = []

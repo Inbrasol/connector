@@ -49,6 +49,10 @@ class ResPartner(models.Model):
     def create(self, vals):
         if self.env.context.get('skip_sync'):
             return super(ResPartner, self).create(vals)
+        
+        if self.sf_id not in [False, None, '']:
+            _logger.error("sf_id is empty, skipping create")
+            return super(ResPartner, self).create(vals)
 
         partner = super(ResPartner, self).create(vals)
         self._event('on_res_partner_create').notify(partner, fields=vals.keys())
@@ -58,6 +62,10 @@ class ResPartner(models.Model):
         _logger.error(f"Update: {vals}")
 
         if self.env.context.get('skip_sync'):
+            return super(ResPartner, self).write(vals)
+        
+        if self.sf_id in [False, None, '']:
+            _logger.error("sf_id is empty, skipping write")
             return super(ResPartner, self).write(vals)
     
         changed_fields = []
@@ -78,12 +86,19 @@ class ResPartner(models.Model):
         return super(ResPartner, self.with_context(context_with_skip_sync)).write(vals)
 
     def unlink(self):
-        if self.env.context.get('skip_sync'):
+        _logger.error("→ Intentando eliminar res.partner con contexto skip_sync: %s", self.env.context.get('skip_sync'))
+        # Buscar los sf_ids de los registros que se quieren eliminar
+        partners = self.env['res.partner'].browse(self.ids)
+        sf_ids = [sf_id for sf_id in partners.mapped('sf_id') if sf_id]  # Solo valores no vacíos
+
+        _logger.error("→ sf_ids encontrados: %s", sf_ids)
+        if len(sf_ids) == 0:
+            _logger.error("→ No se encontraron sf_ids, se eliminará normalmente.")
             return super(ResPartner, self).unlink()
-        
-        sf_ids = self.env['res.partner'].search([('id', 'in', self.ids)]).mapped('sf_id')
-        self._event('on_res_partner_delete').notify(sf_ids)
-        return super(ResPartner, self).unlink()
+        else:
+            _logger.error("→ Se encontraron sf_ids, notificando evento antes de eliminar.")
+            self._event('on_res_partner_delete').notify(sf_ids)
+            return super(ResPartner, self).unlink()
 
 
 class SalesforcePartnerListener(Component):
@@ -102,7 +117,6 @@ class SalesforcePartnerListener(Component):
                 SalesforceRestUtils._handle_successful_response(self, rest_request, rest_response, context_with_skip_sync)
             else:
                 SalesforceRestUtils._handle_failed_response(record, rest_response, context_with_skip_sync)
-
 
 
     @skip_if(lambda self, record, fields: not record or not fields)

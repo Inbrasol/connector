@@ -106,6 +106,9 @@ class ProductTemplate(models.Model):
         if self.env.context.get('skip_sync'):
             return super(ProductTemplate, self).create(vals)
         
+        if self.sf_id not in [False, None, '']:
+            return super(ProductTemplate, self).create(vals)
+        
         product = super(ProductTemplate, self).create(vals)
         fields = self._fields.keys()
         self._event('on_product_template_create').notify(product,fields=fields)
@@ -113,6 +116,9 @@ class ProductTemplate(models.Model):
     
     def write(self, vals):
         if self.env.context.get('skip_sync'):
+            return super(ProductTemplate, self).write(vals)
+        
+        if self.sf_id not in [False, None, '']:
             return super(ProductTemplate, self).write(vals)
         
         # Set skip_sync in context to avoid recursion
@@ -135,13 +141,19 @@ class ProductTemplate(models.Model):
         return self
 
     def unlink(self):
-        if self.env.context.get('skip_sync'):
+        _logger.error("→ Intentando eliminar product.template con contexto skip_sync: %s", self.env.context.get('skip_sync'))
+        # Buscar los sf_ids de los productos que se quieren eliminar
+        product_templates = self.env['product.template'].browse(self.ids)
+        sf_ids = [sf_id for sf_id in product_templates.mapped('sf_id') if sf_id]  # Solo valores no vacíos
+
+        _logger.error("→ sf_ids encontrados: %s", sf_ids)
+        if len(sf_ids) == 0:
+            _logger.error("→ No se encontraron sf_ids, se eliminará normalmente.")
             return super(ProductTemplate, self).unlink()
-        
-        sf_ids = self.env['product.template'].search([('id', 'in', self.ids)]).mapped('sf_id')
-        self._event('on_product_template_delete').notify(sf_ids)
-        product = super(ProductTemplate, self).unlink()
-        return product
+        else:
+            _logger.error("→ Se encontraron sf_ids, notificando evento antes de eliminar.")
+            self._event('on_product_template_delete').notify(sf_ids)
+            return super(ProductTemplate, self).unlink()
 
 class ProductProductListener(Component):
     _name = 'product.product.listener'
