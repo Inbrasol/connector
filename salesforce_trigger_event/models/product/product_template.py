@@ -101,7 +101,8 @@ class ProductTemplate(models.Model):
             cron_job.write({'nextcall': next_call_time})
 
         return self
-
+    
+    """
     def create(self, vals):
         if self.env.context.get('skip_sync'):
             return super(ProductTemplate, self).create(vals)
@@ -113,6 +114,7 @@ class ProductTemplate(models.Model):
         fields = self._fields.keys()
         self._event('on_product_template_create').notify(product,fields=fields)
         return product
+    """
     
     def write(self, vals):
         if self.env.context.get('skip_sync'):
@@ -139,7 +141,7 @@ class ProductTemplate(models.Model):
         print("Product Template Update")
         print(self)
         return self
-
+    
     def unlink(self):
         _logger.error("→ Intentando eliminar product.template con contexto skip_sync: %s", self.env.context.get('skip_sync'))
         # Buscar los sf_ids de los productos que se quieren eliminar
@@ -154,6 +156,7 @@ class ProductTemplate(models.Model):
             _logger.error("→ Se encontraron sf_ids, notificando evento antes de eliminar.")
             self._event('on_product_template_delete').notify(sf_ids)
             return super(ProductTemplate, self).unlink()
+
 
 class ProductProductListener(Component):
     _name = 'product.product.listener'
@@ -219,10 +222,41 @@ class ProductProductListener(Component):
             context_with_skip_sync = dict(self.env.context, skip_sync=True)
             rest_response = SalesforceRestUtils.post(rest_request['url'], rest_request['headers'], rest_request['body'])
             if rest_response and rest_response.status_code in [200, 201]:
-                SalesforceRestUtils._handle_successful_response(self, rest_request, rest_response, context_with_skip_sync)
-            else:
-                SalesforceRestUtils._handle_failed_response(record, rest_response, context_with_skip_sync)
+                sf_tmpl_ids = []
+                # Process the response
+                response_data = rest_response.json()
+                for record_response in response_data['results']:
+                    if record_response['referenceId'] in rest_request['map_ref_fields']:
+                        map_field = rest_request['map_ref_fields'][record_response['referenceId']]
+                        record_to_update = self.env[map_field['model']].browse(map_field['id'])
+                        record_to_update.with_context(context_with_skip_sync).write({
+                            'sf_id': record_response.get('id'),
+                            'sf_integration_status': 'success',
+                            'sf_integration_datetime': datetime.now()
+                        })
+                        sf_tmpl_ids.append(record_response.get('id'))
 
+                # Ensure sf_tmpl_ids are properly formatted for the query
+                sf_tmpl_ids_str = "','".join(sf_tmpl_ids)
+                query = f"SELECT+Id,Pricebook2Id,Product2Id,Odoo_Id__c,UnitPrice,IsActive+FROM+PriceBookEntry+WHERE+Product2Id+IN+('{sf_tmpl_ids_str}')"
+                request_pricebook_entry = self.env['salesforce.rest.config'].build_request(query, None, 'query', 'product_template_pricebook_entry_query')
+                _logger.error("request_pricebook_entry:  %s", request_pricebook_entry)
+                if request_pricebook_entry:
+                    rest_response_pricebook_entry = SalesforceRestUtils.get(request_pricebook_entry['url'], request_pricebook_entry['headers'])
+                    if rest_response_pricebook_entry and rest_response_pricebook_entry.status_code == 200:
+                        rest_response_pricebook_entry_data = rest_response_pricebook_entry.json()
+                        for record_data in rest_response_pricebook_entry.get('records', []):
+                            pricebook_entry_vals = {
+                                'sf_id': record_data['Product2Id'],
+                                'sf_pricebook_entry_id': record_data['Id'],
+                                'sf_pricebook_id': record_data['Pricebook2Id'],
+                                'sf_integration_status': 'success',
+                                'sf_integration_datetime': datetime.now()
+                            }
+                            record_to_update = self.env['product.template'].browse(record_data['Odoo_Id__c'])
+                            record_to_update.with_context(context_with_skip_sync).write(pricebook_entry_vals)
+                            
+                        
     @skip_if(lambda self, record, fields: not record or not fields)
     def on_product_template_update(self, record, fields):
         if record.sf_id not in [False, None, '']:

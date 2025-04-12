@@ -44,9 +44,36 @@ class CrmLead(models.Model):
         return self
     
     def create_lines_to_sf(self):
+        #Create Product Template to Salesforce
         _logger.error("create_lines_to_sf: %s", self)
+        if self.env.context.get('skip_sync') or  self.sf_id  in [False, None, '']:
+            return self
+        
         # Fetch lines that need to be created in Salesforce
-        lines_create_ids = self.lead_product_ids.filtered(lambda line: not line.sf_id).ids
+        context_with_skip_sync = dict(self.env.context, skip_sync=True)
+        lines_product_template_ids = self.lead_product_ids.filtered(lambda line: not line.sf_id and not line.product_id.sf_id).mapped('product_id.product_tmpl_id').ids
+        if lines_product_template_ids:
+            _logger.error("lines_product_template_ids: %s", lines_product_template_ids)
+            product_template_related_model = self.env['product.template']
+            product_template_fields_dict = product_template_related_model._fields
+            # Filter lines that are not already synced with Salesforce
+            product_template_lines_create = product_template_related_model.search([
+                ('id', 'in', lines_product_template_ids),
+                ('active', '=', True)
+            ], limit=201)
+
+            _logger.error("product_template_lines_create: %s", product_template_lines_create)
+
+            if not product_template_lines_create:
+                return self
+
+            # Limit the number of product lines to process to a maximum of 200
+            product_template_lines_to_process = product_template_lines_create[:min(len(product_template_lines_create), 200)]
+            self.env['product.template'].with_context(context_with_skip_sync)._event('on_product_template_create_bulk').notify(product_template_lines_to_process, product_template_fields_dict)
+
+
+        #Create CRM Lead Product to Salesforce
+        lines_create_ids = self.lead_product_ids.filtered(lambda line: not line.sf_id and line.product_id.sf_id).ids
         if not lines_create_ids:
             return self
         
@@ -60,16 +87,17 @@ class CrmLead(models.Model):
             ('product_id.sf_id', '!=', False),
         ], limit=201)
         
-        _logger.error("crm_lead_product_lines: %s", lines_create)
+        _logger.error("crm_lead_product_lines_update: %s", lines_create)
         
         if not lines_create:
             return self
 
         # Limit the number of product lines to process to a maximum of 200
         lines_to_process = lines_create[:min(len(lines_create), 200)]
-        self.env['crm.lead.product']._event('on_crm_lead_product_create').notify(lines_to_process, fields_dict)
+        self.env['crm.lead.product'].with_context(context_with_skip_sync)._event('on_crm_lead_product_create').notify(lines_to_process, fields_dict)
 
         return self
+        
     
     
     def create(self, vals):
@@ -103,7 +131,7 @@ class CrmLead(models.Model):
             elif self[field] != value:
                 changed_fields.append(field)
         super(CrmLead, self.with_context(context_with_skip_sync)).write(vals)
-        if len(changed_fields) > 0:
+        if len(changed_fields) > 0 and 'date_automation_last' not in changed_fields:
             self._event('on_crm_lead_update').notify(self, changed_fields)
 
         self._process_lines(vals)

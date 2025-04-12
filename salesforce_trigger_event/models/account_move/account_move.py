@@ -46,6 +46,8 @@ class AccountMove(models.Model):
         
     def create_lines_to_sf(self):
         _logger.error("create_lines_to_sf: %s", self)
+        if self.env.context.get('skip_sync') or  self.sf_id  in [False, None, '']:
+            return self
         # Fetch lines that need to be created in Salesforce
         lines_create_ids = self.line_ids.filtered(lambda line: not line.sf_id).ids
         if not lines_create_ids:
