@@ -238,14 +238,15 @@ class ProductProductListener(Component):
 
                 # Ensure sf_tmpl_ids are properly formatted for the query
                 sf_tmpl_ids_str = "','".join(sf_tmpl_ids)
-                query = f"SELECT+Id,Pricebook2Id,Product2Id,Odoo_Id__c,UnitPrice,IsActive+FROM+PriceBookEntry+WHERE+Product2Id+IN+('{sf_tmpl_ids_str}')"
+                query = f"SELECT+Id,Pricebook2Id,Product2Id,Product2.Odoo_Id__c,UnitPrice,IsActive+FROM+PriceBookEntry+WHERE+Product2Id+IN+('{sf_tmpl_ids_str}')"
                 request_pricebook_entry = self.env['salesforce.rest.config'].build_request(query, None, 'query', 'product_template_pricebook_entry_query')
                 _logger.error("request_pricebook_entry:  %s", request_pricebook_entry)
                 if request_pricebook_entry:
                     rest_response_pricebook_entry = SalesforceRestUtils.get(request_pricebook_entry['url'], request_pricebook_entry['headers'])
                     if rest_response_pricebook_entry and rest_response_pricebook_entry.status_code == 200:
                         rest_response_pricebook_entry_data = rest_response_pricebook_entry.json()
-                        for record_data in rest_response_pricebook_entry.get('records', []):
+                        _logger.error("rest_response_pricebook_entry_data:  %s", rest_response_pricebook_entry_data)
+                        for record_data in rest_response_pricebook_entry_data['records']:
                             pricebook_entry_vals = {
                                 'sf_id': record_data['Product2Id'],
                                 'sf_pricebook_entry_id': record_data['Id'],
@@ -253,7 +254,8 @@ class ProductProductListener(Component):
                                 'sf_integration_status': 'success',
                                 'sf_integration_datetime': datetime.now()
                             }
-                            record_to_update = self.env['product.template'].browse(record_data['Odoo_Id__c'])
+                            record_id = int(record_data['Product2']['Odoo_Id__c'])
+                            record_to_update = self.env['product.template'].browse(record_id)
                             record_to_update.with_context(context_with_skip_sync).write(pricebook_entry_vals)
                             
                         
