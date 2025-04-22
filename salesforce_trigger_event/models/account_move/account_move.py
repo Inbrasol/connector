@@ -74,6 +74,9 @@ class AccountMove(models.Model):
         return self
     
     def create(self, vals):
+        if len(self) > 1:
+            return super(AccountMove, self).create(vals)
+        
         if self.env.context.get('skip_sync'):
             return super(AccountMove, self).create(vals)
         
@@ -86,6 +89,9 @@ class AccountMove(models.Model):
         return account_move
     
     def write(self, vals):
+        if len(self) > 1:
+            return super(AccountMove, self).write(vals)
+        
         if self.env.context.get('skip_sync'):
             return super(AccountMove, self).write(vals)
         

@@ -76,6 +76,9 @@ class SaleOrder(models.Model):
     
     
     def create(self, vals):
+        if len(self) > 1:
+            return super(SaleOrder, self).create(vals)
+        
         if self.env.context.get('skip_sync'):
             return super(SaleOrder, self).create(vals)
         
@@ -90,6 +93,9 @@ class SaleOrder(models.Model):
     
     
     def write(self, vals):
+        if len(self) > 1:
+            return super(SaleOrder, self).write(vals)
+        
         if self.env.context.get('skip_sync'):
             return super(SaleOrder, self).write(vals)
         

@@ -47,6 +47,9 @@ class ResPartner(models.Model):
             cron_job.write({'nextcall': next_call_time})
 
     def create(self, vals):
+        if len(self) > 1:
+            return super(ResPartner, self).create(vals)
+
         if self.env.context.get('skip_sync'):
             return super(ResPartner, self).create(vals)
         
@@ -60,7 +63,9 @@ class ResPartner(models.Model):
     
     def write(self, vals):
         _logger.error(f"Update: {vals}")
-
+        if len(self) > 1:
+            return super(ResPartner, self).write(vals)
+        
         if self.env.context.get('skip_sync'):
             return super(ResPartner, self).write(vals)
         

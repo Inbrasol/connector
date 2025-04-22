@@ -117,6 +117,9 @@ class ProductTemplate(models.Model):
     """
     
     def write(self, vals):
+        if len(self) > 1:
+            return super(ProductTemplate, self).write(vals)
+        
         if self.env.context.get('skip_sync'):
             return super(ProductTemplate, self).write(vals)
         

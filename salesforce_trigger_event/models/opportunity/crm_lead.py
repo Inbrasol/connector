@@ -101,6 +101,9 @@ class CrmLead(models.Model):
     
     
     def create(self, vals):
+        if len(self) > 1:
+            return super(CrmLead, self).create(vals)
+        
         if self.env.context.get('skip_sync'):
             return super(CrmLead, self).create(vals)
         
@@ -113,6 +116,9 @@ class CrmLead(models.Model):
         return lead
 
     def write(self, vals):
+        if len(self) > 1:
+            return super(CrmLead, self).write(vals)
+        
         if self.env.context.get('skip_sync'):
             return super(CrmLead, self).write(vals)
         
