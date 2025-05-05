@@ -13,6 +13,19 @@
             <field name="doall" eval="False"/>
             <field name="active" eval="False"/>
         </record>
+
+        <!-- Cron job to create Contact Res Partner in Salesforce -->
+        <record id="ir_cron_create_contact_res_partner_to_sf" model="ir.cron">
+            <field name="name">Crear Res Partner Salesforce</field>
+            <field name="model_id" ref="model_res_partner"/>
+            <field name="state">code</field>
+            <field name="code">model.create_contact_lines_to_sf()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">hours</field>
+            <field name="numbercall">-1</field>
+            <field name="doall" eval="False"/>
+            <field name="active" eval="False"/>
+        </record>
         
         <!-- Cron job to create CRM Lead in Salesforce -->
         <record id="ir_cron_create_crm_lead_to_sf" model="ir.cron">

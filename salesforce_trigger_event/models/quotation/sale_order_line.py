@@ -20,7 +20,9 @@ class SaleOrderLine(models.Model):
         related_model = self.env['sale.order.line']
         fields = related_model._fields.keys()
         lines_create = related_model.search([
+            '|',
             ('sf_id', '=', False),
+            ('sf_id', '=', ''), 
             ('order_id.sf_id', '!=', False),
             ('product_id.sf_id', '!=', False),
         ], limit=201)

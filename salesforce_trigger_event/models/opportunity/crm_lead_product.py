@@ -19,7 +19,9 @@ class CrmLeadProduct(models.Model):
         related_model = self.env['crm.lead.product']
         fields = related_model._fields.keys()
         product_lines_create = related_model.search([
+            '|',
             ('sf_id', '=', False),
+            ('sf_id', '=', ''), 
             ('lead_id.sf_id', '!=', False),
             ('product_id.sf_id', '!=', False),
         ], limit=201)

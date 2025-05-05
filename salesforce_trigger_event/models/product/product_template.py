@@ -18,7 +18,9 @@ class ProductTemplate(models.Model):
         related_model = self.env['product.template']
         fields = related_model._fields.keys()
         lines_create = related_model.search([
+            '|',
             ('sf_id', '=', False),
+            ('sf_id', '=', ''), 
             ('sale_ok', '=', True),
             ('type', 'in', ('consu', 'product')),
             ('active', '=', True),

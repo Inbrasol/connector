@@ -19,7 +19,9 @@ class AccountMove(models.Model):
         related_model = self.env['account.move']
         fields = related_model._fields.keys()
         lines_create = related_model.search([
+            '|',
             ('sf_id', '=', False),
+            ('sf_id', '=', ''), 
             ('sale_order_id.sf_id', '!=', False),
             ('partner_id.commercial_partner_id.sf_id', '!=', False),
             ('state', '=', 'posted'),

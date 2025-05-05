@@ -20,7 +20,9 @@ class CrmLead(models.Model):
         related_model = self.env['crm.lead']
         fields = related_model._fields.keys()
         lines_create = related_model.search([
+            '|',
             ('sf_id', '=', False),
+            ('sf_id', '=', ''), 
             ('partner_id.commercial_partner_id.sf_id', '!=', False),
             ('stage_id.code', '!=', False),
         ], limit=201)
