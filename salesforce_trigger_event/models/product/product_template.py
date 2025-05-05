@@ -34,7 +34,7 @@ class ProductTemplate(models.Model):
         lines_to_process = []
         # Ensure the product name does not exceed 255 characters
         for line in lines:
-            line_data = line.copy_data()[0]
+            line_data = line
             if len(line.name) > 255:
                 line_data['name'] = line.name[:255]
             lines_to_process.append(line_data)

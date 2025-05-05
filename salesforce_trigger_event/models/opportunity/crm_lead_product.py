@@ -146,7 +146,6 @@ class CrmLeadProductListener(Component):
             else:
                 SalesforceRestUtils._handle_failed_response(records, rest_response, context_with_skip_sync)
 
-    
     @skip_if(lambda self, records: not records)
     def on_crm_lead_product_delete(self, records):
         rest_request = self.env['salesforce.rest.config'].build_request(records, None, 'delete', 'crm_lead_product_delete')

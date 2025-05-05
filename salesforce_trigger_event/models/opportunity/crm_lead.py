@@ -98,8 +98,6 @@ class CrmLead(models.Model):
 
         return self
         
-    
-    
     def create(self, vals):
         if len(self) > 1:
             return super(CrmLead, self).create(vals)
