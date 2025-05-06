@@ -295,7 +295,7 @@ class SalesforceRestUtils:
                 if isinstance(response_json, list):
                     errors = []
                     for error in response_json:
-                        if error.get("errorCode") == "DUPLICATES_DETECTED" and "duplicates value on record with id" in error.get("message"):
+                        if error.get("statusCode") == "DUPLICATE_VALUE" and "duplicate value found" in error.get("message"):
                             duplicate_id = error["message"].split("id: ")[-1]
                             _logger.error(f"Duplicate value found. Updating sf_id to {duplicate_id}.")
                             record.with_context(context_with_skip_sync).write({
@@ -335,8 +335,8 @@ class SalesforceRestUtils:
                             map_field = rest_request['map_ref_fields'][reference_id]
                             record_to_update = self.env[map_field['model']].browse(map_field['id'])
                             for error in errors:
-                                if error.get("errorCode") == "DUPLICATES_DETECTED" and "duplicates value on record with id" in error.get("message"):
-                                    duplicate_id = error["message"].split("id: ")[-1]
+                                if error.get("statusCode") == "DUPLICATE_VALUE" and "duplicate value found" in error.get("message"):
+                                    duplicate_id = error["message"].split("id: ")[-1].strip()
                                     _logger.error(f"Duplicate value detected for {reference_id}. Updating sf_id to {duplicate_id}.")
                                     record_to_update.with_context(context_with_skip_sync).write({
                                         'sf_id': duplicate_id,
@@ -352,14 +352,14 @@ class SalesforceRestUtils:
                                         'sf_integration_error': error.get('message')
                                     })
                                     break
-                            else:
-                                error_message = ", ".join([err.get("message", "Unknown error") for err in errors])
-                                _logger.error(f"Failed to update record {record_to_update.id}. Errors: {error_message}")
-                                record_to_update.with_context(context_with_skip_sync).write({
-                                    'sf_integration_status': 'failed',
-                                    'sf_integration_datetime': datetime.now(),
-                                    'sf_integration_error': error_message
-                                })
+                                else:
+                                    error_message = ", ".join([err.get("message", "Unknown error") for err in errors])
+                                    _logger.error(f"Failed to update record {record_to_update.id}. Errors: {error_message}")
+                                    record_to_update.with_context(context_with_skip_sync).write({
+                                        'sf_integration_status': 'failed',
+                                        'sf_integration_datetime': datetime.now(),
+                                        'sf_integration_error': error_message
+                                    })
             except ValueError:
                 _logger.error(f"Failed to parse JSON response: {rest_response.text}")
         else:
