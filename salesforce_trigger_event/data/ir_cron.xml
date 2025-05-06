@@ -16,7 +16,7 @@
 
         <!-- Cron job to create Contact Res Partner in Salesforce -->
         <record id="ir_cron_create_contact_res_partner_to_sf" model="ir.cron">
-            <field name="name">Crear Res Partner Salesforce</field>
+            <field name="name">Crear Res Partner Contact Salesforce</field>
             <field name="model_id" ref="model_res_partner"/>
             <field name="state">code</field>
             <field name="code">model.create_contact_lines_to_sf()</field>

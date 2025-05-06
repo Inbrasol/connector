@@ -49,11 +49,11 @@ class ResPartner(models.Model):
             cron_job.write({'nextcall': next_call_time})
 
     @api.model
-    def create_contact_lines_to_sf(self, lines):
+    def create_contact_lines_to_sf(self):
         _logger.error("cron: %s", self)
         related_model = self.env['res.partner']
         fields = related_model._fields.keys()
-        customer_category = self.env['res.partner.category'].search([('name', '=', 'Cliente')], limit=1)
+        customer_category = self.env['res.partner.category'].search([('name', '=', 'Contacto')], limit=1)
         if not customer_category:
             _logger.error("Customer category not found")
             return self
@@ -158,7 +158,7 @@ class SalesforcePartnerListener(Component):
             if rest_response and rest_response.status_code in [200, 201]:
                 SalesforceRestUtils._handle_successful_response(self, rest_request, rest_response, context_with_skip_sync)
             else:
-                SalesforceRestUtils._handle_failed_response(record, rest_response, context_with_skip_sync)
+                SalesforceRestUtils._handle_failed_response(self, rest_request, rest_response, context_with_skip_sync)
 
     @skip_if(lambda self, record, fields: not record or not fields)
     def on_res_partner_contact_create(self, record, fields):
@@ -169,7 +169,7 @@ class SalesforcePartnerListener(Component):
             if rest_response and rest_response.status_code in [200, 201]:
                 SalesforceRestUtils._handle_successful_response(self, rest_request, rest_response, context_with_skip_sync)
             else:
-                SalesforceRestUtils._handle_failed_response(record, rest_response, context_with_skip_sync)
+                SalesforceRestUtils._handle_failed_response(self, rest_request, rest_response, context_with_skip_sync)
 
 
     @skip_if(lambda self, record, fields: not record or not fields)
@@ -196,4 +196,4 @@ class SalesforcePartnerListener(Component):
             if rest_response and rest_response.status_code in [200, 201]:
                 SalesforceRestUtils._update_sf_integration_status(records, rest_response, context_with_skip_sync)
             else:
-                SalesforceRestUtils._handle_failed_response(records, rest_response, context_with_skip_sync)
+                SalesforceRestUtils._handle_failed_response(self, rest_request, rest_response, context_with_skip_sync)

@@ -129,7 +129,7 @@ class CrmLeadProductListener(Component):
             if rest_response and rest_response.status_code in [200, 201]:
                 SalesforceRestUtils._handle_successful_response(self, rest_request, rest_response, context_with_skip_sync)
             else:
-                SalesforceRestUtils._handle_failed_response(record, rest_response, context_with_skip_sync)
+                SalesforceRestUtils._handle_failed_response(self, rest_request, rest_response, context_with_skip_sync)
         
     @skip_if(lambda self, records, fields: not records or not fields)
     def on_crm_lead_product_update(self, records, fields):
@@ -146,7 +146,7 @@ class CrmLeadProductListener(Component):
             if rest_response and rest_response.status_code in [200, 201]:
                 SalesforceRestUtils._handle_successful_response(self, rest_request, rest_response, context_with_skip_sync)
             else:
-                SalesforceRestUtils._handle_failed_response(records, rest_response, context_with_skip_sync)
+                SalesforceRestUtils._handle_failed_response(self, rest_request, rest_response, context_with_skip_sync)
 
     @skip_if(lambda self, records: not records)
     def on_crm_lead_product_delete(self, records):
@@ -158,4 +158,4 @@ class CrmLeadProductListener(Component):
             if rest_response and rest_response.status_code in [200, 201]:
                 SalesforceRestUtils._handle_successful_response(self, rest_request, rest_response, context_with_skip_sync)
             else:
-                SalesforceRestUtils._handle_failed_response(records, rest_response, context_with_skip_sync)
+                SalesforceRestUtils._handle_failed_response(self, rest_request, rest_response, context_with_skip_sync)

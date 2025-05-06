@@ -113,7 +113,7 @@ class SaleOrderLineListener(Component):
             if rest_response and rest_response.status_code in [200, 201]:
                 SalesforceRestUtils._handle_successful_response(self, rest_request, rest_response, context_with_skip_sync)
             else:
-                SalesforceRestUtils._handle_failed_response(record, rest_response, context_with_skip_sync)
+                SalesforceRestUtils._handle_failed_response(self, rest_request, rest_response, context_with_skip_sync)
 
     @skip_if(lambda self, records, fields: not records or not fields)
     def on_sale_order_line_update(self, records, fields):
@@ -130,7 +130,7 @@ class SaleOrderLineListener(Component):
             if rest_response and rest_response.status_code in [200, 201]:
                 SalesforceRestUtils._handle_successful_response(self, rest_request, rest_response, context_with_skip_sync)
             else:
-                SalesforceRestUtils._handle_failed_response(records, rest_response, context_with_skip_sync)
+                SalesforceRestUtils._handle_failed_response(self, rest_request, rest_response, context_with_skip_sync)
 
 
     @skip_if(lambda self, records: not records)
@@ -140,4 +140,4 @@ class SaleOrderLineListener(Component):
             context_with_skip_sync = dict(self.env.context, skip_sync=True)
             rest_response = SalesforceRestUtils.delete(rest_request['url'], rest_request['headers'])
             if rest_response and rest_response.status_code not in [200, 201]:
-                SalesforceRestUtils._handle_failed_response(records, rest_response, context_with_skip_sync)
+                SalesforceRestUtils._handle_failed_response(self, rest_request, rest_response, context_with_skip_sync)

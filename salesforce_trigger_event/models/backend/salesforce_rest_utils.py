@@ -13,7 +13,7 @@ class SalesforceRestUtils:
             _logger.error(f"GET request url: {url}")
             _logger.error(f"GET request headers: {headers}")
             response = requests.get(url, headers=headers)
-            response.raise_for_status()
+            #response.raise_for_status()
             _logger.error(f"GET request data: {response}")
             return response
         except requests.exceptions.RequestException as e:
@@ -28,7 +28,7 @@ class SalesforceRestUtils:
             _logger.error(f"POST request data: {data}")
             response = requests.post(url, headers=headers, data=data)
             _logger.error(f"POST request data: {response.json()}")
-            response.raise_for_status()
+            #response.raise_for_status()
             _logger.error(f"POST request data: {response}")
             _logger.error(f"POST request data: {response.json()}")
             return response
@@ -43,7 +43,7 @@ class SalesforceRestUtils:
             _logger.error(f"PUT request headers: {headers}")
             _logger.error(f"PUT request data: {data}")
             response = requests.put(url, headers=headers, data=data)
-            response.raise_for_status()
+            #response.raise_for_status()
             _logger.error(f"PUT request data: {response}")
             return response
         except requests.exceptions.RequestException as e:
@@ -57,7 +57,7 @@ class SalesforceRestUtils:
             _logger.error(f"PATCH request headers: {headers}")
             _logger.error(f"PATCH request data: {data}")
             response = requests.patch(url, headers=headers, data=data)
-            response.raise_for_status()
+            #response.raise_for_status()
             _logger.error(f"PATCH request data: {response}")
             return response
         except requests.exceptions.RequestException as e:
@@ -70,7 +70,7 @@ class SalesforceRestUtils:
             _logger.error(f"DELETE request url: {url}")
             _logger.error(f"DELETE request headers: {headers}")
             response = requests.delete(url, headers=headers)
-            response.raise_for_status()
+            #response.raise_for_status()
             _logger.error(f"DELETE request data: {response}")
             return response
         except requests.exceptions.RequestException as e:
@@ -281,14 +281,89 @@ class SalesforceRestUtils:
             'sf_integration_datetime': datetime.now()
         })
     
-    def _handle_failed_response(record, rest_response, context_with_skip_sync):
-        #_logger.error(f"Failed to update Salesforce record: {rest_response.content}")
+    def _handle_failed_response(self, rest_request, rest_response, context_with_skip_sync):
+        if rest_request.get('type') in ['composite', 'composite_tree', 'composite_collection']:
+            SalesforceRestUtils._handle_failed_composite_response(self, rest_request, rest_response, context_with_skip_sync)
+        else:
+            SalesforceRestUtils._handle_failed_rest_response(self, rest_request, rest_response, context_with_skip_sync)
+
+    def _handle_failed_rest_response(self, rest_request, rest_response, context_with_skip_sync):
+        record = self.env[rest_request['model']].browse(rest_request['id'])
         if rest_response is not None:
-            record.with_context(context_with_skip_sync).write({
+            try:
+                response_json = rest_response.json()
+                if isinstance(response_json, list):
+                    errors = []
+                    for error in response_json:
+                        if error.get("errorCode") == "DUPLICATES_DETECTED" and "duplicates value on record with id" in error.get("message"):
+                            duplicate_id = error["message"].split("id: ")[-1]
+                            _logger.error(f"Duplicate value found. Updating sf_id to {duplicate_id}.")
+                            record.with_context(context_with_skip_sync).write({
+                                'sf_id': duplicate_id,
+                                'sf_integration_status': 'success',
+                                'sf_integration_datetime': datetime.now()
+                            })
+                            return
+                        errors.append(error.get("message", "Unknown error"))
+                    error_message = ", ".join(errors)
+                else:
+                    error_message = response_json if response_json else rest_response.text or f"HTTP {rest_response.status_code} (No content)"
+            except ValueError:
+                _logger.error(f"Failed to parse JSON response: {rest_response.text}")
+                error_message = rest_response.text or f"HTTP {rest_response.status_code} (No content)"
+        else:
+            error_message = "No response received from Salesforce"
+
+        _logger.error(f"Salesforce REST request failed. Status: {rest_response.status_code if rest_response else 'No Response'}, Error: {error_message}")
+        record.with_context(context_with_skip_sync).write({
             'sf_integration_status': 'failed',
             'sf_integration_datetime': datetime.now(),
-            'sf_integration_error': rest_response.text
-            })
+            'sf_integration_error': error_message
+        })
+
+    def _handle_failed_composite_response(self, rest_request, rest_response, context_with_skip_sync):
+        _logger.error(f"rest_request: {rest_request}")
+        _logger.error(f"rest_response: {rest_response}")
+        if rest_response is not None:
+            try:
+                response_json = rest_response.json()
+                if isinstance(response_json, dict) and response_json.get("hasErrors"):
+                    for result in response_json.get("results", []):
+                        reference_id = result.get("referenceId")
+                        errors = result.get("errors", [])
+                        if reference_id in rest_request['map_ref_fields']:
+                            map_field = rest_request['map_ref_fields'][reference_id]
+                            record_to_update = self.env[map_field['model']].browse(map_field['id'])
+                            for error in errors:
+                                if error.get("errorCode") == "DUPLICATES_DETECTED" and "duplicates value on record with id" in error.get("message"):
+                                    duplicate_id = error["message"].split("id: ")[-1]
+                                    _logger.error(f"Duplicate value detected for {reference_id}. Updating sf_id to {duplicate_id}.")
+                                    record_to_update.with_context(context_with_skip_sync).write({
+                                        'sf_id': duplicate_id,
+                                        'sf_integration_status': 'success',
+                                        'sf_integration_datetime': datetime.now()
+                                    })
+                                    break
+                                elif error.get("errorCode") == "INVALID_FIELD":
+                                    _logger.error(f"Invalid field error for {reference_id}. Error: {error.get('message')}")
+                                    record_to_update.with_context(context_with_skip_sync).write({
+                                        'sf_integration_status': 'failed',
+                                        'sf_integration_datetime': datetime.now(),
+                                        'sf_integration_error': error.get('message')
+                                    })
+                                    break
+                            else:
+                                error_message = ", ".join([err.get("message", "Unknown error") for err in errors])
+                                _logger.error(f"Failed to update record {record_to_update.id}. Errors: {error_message}")
+                                record_to_update.with_context(context_with_skip_sync).write({
+                                    'sf_integration_status': 'failed',
+                                    'sf_integration_datetime': datetime.now(),
+                                    'sf_integration_error': error_message
+                                })
+            except ValueError:
+                _logger.error(f"Failed to parse JSON response: {rest_response.text}")
+        else:
+            _logger.error("No response received for composite request.")
 
 
     #SINGLE RECORD
