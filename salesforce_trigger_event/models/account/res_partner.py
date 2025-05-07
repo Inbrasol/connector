@@ -84,6 +84,12 @@ class ResPartner(models.Model):
 
 
     def create(self, vals):
+        if isinstance(vals, list):
+            partners = super(ResPartner, self).create(vals)
+            for partner, val in zip(partners, vals):
+                self._event('on_res_partner_create').notify(partner, fields=val.keys())
+            return partners
+
         if len(self) > 1:
             return super(ResPartner, self).create(vals)
 
