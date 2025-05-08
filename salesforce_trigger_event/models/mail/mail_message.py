@@ -41,7 +41,7 @@ class MailMessage(models.Model):
         
         if self.env.context.get('skip_sync'):
             return super(MailMessage, self).write(vals)
-
+        
         context_with_skip_sync = dict(self.env.context, skip_sync=True)
         changed_fields = []
         for field, value in vals.items():
@@ -121,15 +121,16 @@ class MailMessageEventListener(Component):
 
             data = {
                 "body": {
-                "messageSegments": [
-                    {
-                        "type": "Mention",
-                        "id": sf_user.sf_id,
-                    },
-                    {
-                    "type": "Text",
-                    "text": html2plaintext(record.body)
-                }]
+                    "messageSegments": [
+                        {
+                            "type": "Mention",
+                            "id": sf_user.sf_id,
+                        },
+                        {
+                            "type": "Text",
+                            "text": html2plaintext(record.body)
+                        }
+                    ]
                 },
                 "feedElementType": "FeedItem",
                 "subjectId": record_id
@@ -139,8 +140,36 @@ class MailMessageEventListener(Component):
             if response.status_code == 201:
                 _logger.info("Message successfully created in Salesforce.")
                 response_data = response.json()
-                self.env['mail.message'].browse(record.id).write({'sf_id': response_data.get('id')})
+                record.write({'sf_id': response_data.get('id')})
                 _logger.info(f"Salesforce ID: {record.sf_id}")
+                # Handle attachments if present
+                attachments = self.env['ir.attachment'].search([('res_model', '=', 'mail.message'), ('res_id', '=', record.id)])
+                for attachment in attachments:
+                    attachment_url = f"{salesforce_backend.url}/services/data/v{salesforce_backend.api_version}/sobjects/ContentVersion"
+                    attachment_data = {
+                        "Title": attachment.name,
+                        "PathOnClient": attachment.name,
+                        "VersionData": attachment.datas.decode('utf-8'),
+                    }
+                    attachment_response = requests.post(attachment_url, headers=headers, json=attachment_data)
+                    if attachment_response.status_code == 201:
+                        _logger.info(f"Attachment {attachment.name} successfully uploaded to Salesforce.")
+                        # Associate the uploaded attachment with the FeedItem
+                        content_document_id = attachment_response.json().get('contentDocumentId')
+                        if content_document_id:
+                            feed_attachment_url = f"{salesforce_backend.url}/services/data/v{salesforce_backend.api_version}/chatter/feed-elements/{response_data.get('id')}/capabilities/files/items"
+                            feed_attachment_data = {
+                                "contentDocumentId": content_document_id
+                            }
+                            feed_attachment_response = requests.post(feed_attachment_url, headers=headers, json=feed_attachment_data)
+                            if feed_attachment_response.status_code == 201:
+                                _logger.info(f"Attachment {attachment.name} successfully associated with FeedItem in Salesforce.")
+                            else:
+                                _logger.error(f"Failed to associate attachment {attachment.name} with FeedItem in Salesforce. Status: {feed_attachment_response.status_code}, Response: {feed_attachment_response.text}")
+                        else:
+                            _logger.error(f"Failed to retrieve contentDocumentId for attachment {attachment.name}.")
+                    else:
+                        _logger.error(f"Failed to upload attachment {attachment.name} to Salesforce. Status: {attachment_response.status_code}, Response: {attachment_response.text}")
             else:
                 _logger.error(f"Failed to create message in Salesforce. Status: {response.status_code}, Response: {response.text}")
 
@@ -186,28 +215,66 @@ class MailMessageEventListener(Component):
                 url = f"{salesforce_backend.url}/services/data/v{salesforce_backend.api_version}/chatter/feed-elements"
                 record_id = self.env[record.model].browse(record.res_id).sf_id
                 sf_user = self.env['salesforce.user'].search([('partner_id', 'in', record.partner_ids.ids)], limit=1)
+                if not sf_user:
+                    _logger.error("No Salesforce user found for the record.")
+                    return
+                if not record_id:
+                    _logger.error("No Salesforce ID found for the record.")
+                    return
+                if not record.body:
+                    _logger.error("No body found for the record.")
+                    return
+
                 data = {
                     "body": {
-                    "messageSegments": [
-                        {
-                            "type": "Mention",
-                            "id": sf_user.sf_id,
-                        },
-                        {
-                        "type": "Text",
-                        "text": html2plaintext(record.body)
-                    }]
+                        "messageSegments": [
+                            {
+                                "type": "Mention",
+                                "id": sf_user.sf_id,
+                            },
+                            {
+                                "type": "Text",
+                                "text": html2plaintext(record.body)
+                            }
+                        ]
                     },
                     "feedElementType": "FeedItem",
                     "subjectId": record_id
                 }
                 response = requests.post(url, headers=headers, json=data)
-                _logger.error(f"response_update: {response.json()}")
                 if response.status_code == 201:
                     _logger.info("Message successfully created in Salesforce.")
                     response_data = response.json()
-                    self.env['mail.message'].browse(record.id).write({'sf_id': response_data.get('id')})
+                    record.write({'sf_id': response_data.get('id')})
                     _logger.info(f"Salesforce ID: {record.sf_id}")
+                    # Handle attachments if present
+                    attachments = self.env['ir.attachment'].search([('res_model', '=', 'mail.message'), ('res_id', '=', record.id)])
+                    for attachment in attachments:
+                        attachment_url = f"{salesforce_backend.url}/services/data/v{salesforce_backend.api_version}/sobjects/ContentVersion"
+                        attachment_data = {
+                            "Title": attachment.name,
+                            "PathOnClient": attachment.name,
+                            "VersionData": attachment.datas.decode('utf-8'),
+                        }
+                        attachment_response = requests.post(attachment_url, headers=headers, json=attachment_data)
+                        if attachment_response.status_code == 201:
+                            _logger.info(f"Attachment {attachment.name} successfully uploaded to Salesforce.")
+                            # Associate the uploaded attachment with the FeedItem
+                            content_document_id = attachment_response.json().get('contentDocumentId')
+                            if content_document_id:
+                                feed_attachment_url = f"{salesforce_backend.url}/services/data/v{salesforce_backend.api_version}/chatter/feed-elements/{response_data.get('id')}/capabilities/files/items"
+                                feed_attachment_data = {
+                                    "contentDocumentId": content_document_id
+                                }
+                                feed_attachment_response = requests.post(feed_attachment_url, headers=headers, json=feed_attachment_data)
+                                if feed_attachment_response.status_code == 201:
+                                    _logger.info(f"Attachment {attachment.name} successfully associated with FeedItem in Salesforce.")
+                                else:
+                                    _logger.error(f"Failed to associate attachment {attachment.name} with FeedItem in Salesforce. Status: {feed_attachment_response.status_code}, Response: {feed_attachment_response.text}")
+                            else:
+                                _logger.error(f"Failed to retrieve contentDocumentId for attachment {attachment.name}.")
+                        else:
+                            _logger.error(f"Failed to upload attachment {attachment.name} to Salesforce. Status: {attachment_response.status_code}, Response: {attachment_response.text}")
                 else:
                     _logger.error(f"Failed to create message in Salesforce. Status: {response.status_code}, Response: {response.text}")
 
