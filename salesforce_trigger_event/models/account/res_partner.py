@@ -82,7 +82,6 @@ class ResPartner(models.Model):
             next_call_time = (datetime.now() + timedelta(minutes=2)).strftime('%Y-%m-%d %H:%M:%S')
             cron_job.write({'nextcall': next_call_time})
 
-
     def create(self, vals):
         if isinstance(vals, list):
             partners = super(ResPartner, self).create(vals)
