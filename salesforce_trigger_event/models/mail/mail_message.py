@@ -34,13 +34,7 @@ class MailMessage(models.Model):
     """
 
     def write(self, vals):
-        _logger.error(f"Context: {self.env.context}")
-        _logger.error("Modify message in Salesforce...")
-        _logger.error(f"Is Salesforce: {self.is_salesforce}")
-        _logger.error(f"sf_id : {self.sf_id}")
-        _logger.error(f"vals : {vals}")
         context_with_skip_sync = dict(self.env.context, skip_sync=True)
-
         if len(self) > 1:
             return super(MailMessage, self).write(vals)
         
