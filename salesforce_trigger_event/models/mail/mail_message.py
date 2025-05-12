@@ -114,112 +114,134 @@ class MailMessageEventListener(Component):
         # Paso 1: Crear ContentVersion para cada archivo (Uso de Composite)
         composite_request = []
         attachment_ref_map = {}
-
-        for idx, attachment in enumerate(record.attachment_ids):
-            ref_id = f"Attachment_{idx}"
+        if not record.attachment_ids:
+        # Paso 2: Crear FeedItem tipo ContentPost (Uso de Composite)
             composite_request.append({
                 "method": "POST",
-                "url": "/services/data/v60.0/sobjects/ContentVersion",
-                "referenceId": ref_id,
+                "url": "/services/data/v60.0/sobjects/FeedItem",
+                "referenceId": "FeedPost",
                 "body": {
-                    "Title": attachment.name,
-                    "PathOnClient": attachment.name,
-                    "VersionData": attachment.datas.decode('utf-8'),
+                    "ParentId": record_id,
+                    "Body": html2plaintext(record.body) or "",
+                    "Type": "ContentPost"
                 }
             })
-            attachment_ref_map[ref_id] = idx
-
-        # Paso 2: Crear FeedItem tipo ContentPost (Uso de Composite)
-        composite_request.append({
-            "method": "POST",
-            "url": "/services/data/v60.0/sobjects/FeedItem",
-            "referenceId": "FeedPost",
-            "body": {
-                "ParentId": record_id,
-                "Body": html2plaintext(record.body) or "",
-                "Type": "ContentPost"
-            }
-        })
-
-        # Paso 3: Enviar Composite Request para crear los ContentVersions y el FeedItem
-        payload = {"allOrNone": True, "compositeRequest": composite_request}
-        response = requests.post(f"{base_url}/composite", headers=headers, json=payload)
-
-        if response.status_code != 200:
-            _logger.error(f"❌ Error al crear ContentVersion y FeedItem: {response.text}")
-            return
-
-        composite_response = response.json()
-        _logger.info(f"Composite Response: {json.dumps(composite_response, indent=2)}")
-        feed_item_id = next(
-            item['body']['id'] for item in composite_response['compositeResponse']
-            if item['referenceId'] == "FeedPost"
-        )
-        _logger.info(f"✅ FeedItem creado correctamente con ID: {feed_item_id}")
-
-        # Paso 4: Obtener ContentDocumentId de todos los Attachments mediante una única consulta REST
-        content_version_ids = [
-            item['body']['id'] for item in composite_response['compositeResponse']
-            if item['referenceId'].startswith("Attachment_")
-        ]
-        query = "SELECT+Id,ContentDocumentId+FROM+ContentVersion+WHERE+Id+IN+('{}')".format("','".join(content_version_ids))
-        _logger.error(f"❌ query: {query}")
-        response = requests.get(f"{salesforce_backend.url}/services/data/v60.0/query/?q={query}", headers=headers)
-        _logger.info(f"GET response: {response}")
-        if response.status_code != 200:
-            _logger.error(f"❌ Error al obtener ContentDocumentId: {response.text}")
-            return
-
-        records = response.json()['records']
-        content_document_map = {record['Id']: record['ContentDocumentId'] for record in records}
-
-        # Paso 5: Crear FeedAttachment (Uso de Composite para todos los adjuntos)
-        composite_link_request = []
-        for ref_id, idx in attachment_ref_map.items():
-            content_version_id = composite_response['compositeResponse'][idx]['body']['id']
-            content_document_id = content_document_map.get(content_version_id)
-
-            if content_version_id:
-                composite_link_request.append({
-                    "method": "POST",
-                    "url": "/services/data/v60.0/sobjects/FeedAttachment",
-                    "referenceId": f"AttachFeed_{idx}",
-                    "body": {
-                        "Type": "Content",
-                        "FeedEntityId": feed_item_id,
-                        "RecordId": content_version_id
-                    }
-                })
-            else:
-                _logger.error(f"❌ No se encontró ContentVersionId para el Attachment {ref_id}")
-
-            if content_document_id:
-                composite_link_request.append({
-                    "method": "POST",
-                    "url": "/services/data/v60.0/sobjects/ContentDocumentLink",
-                    "referenceId": f"LinkEntity_{idx}",
-                    "body": {
-                        "ContentDocumentId": content_document_id,
-                        "LinkedEntityId": record_id,
-                        "ShareType": "V"
-                    }
-                })
-            else:
-                _logger.error(f"❌ No se encontró ContentDocumentId para el Attachment {ref_id}")
-
-        # Enviar el composite para crear los FeedAttachments y ContentDocumentLinks
-        if composite_link_request:
-            payload = {"allOrNone": True, "compositeRequest": composite_link_request}
+            # Paso 3: Enviar Composite Request para crear los ContentVersions y el FeedItem
+            payload = {"allOrNone": True, "compositeRequest": composite_request}
             response = requests.post(f"{base_url}/composite", headers=headers, json=payload)
             if response.status_code == 200:
                 record.with_context(skip_sync=True).write({'sf_id': record_id})
-                _logger.info(f"✅ FeedAttachments y ContentDocumentLinks creados correctamente.")
-                _logger.error(f"✅ FeedAttachments : {response.text}")
-            else:
-                _logger.error(f"❌ Error al crear FeedAttachments y ContentDocumentLinks: {response.text}")
+                _logger.info(f"✅ FeedItem creado correctamente con ID: {record_id}")
+        
+        elif record.attachment_ids:
+
+            for idx, attachment in enumerate(record.attachment_ids):
+                ref_id = f"Attachment_{idx}"
+                composite_request.append({
+                    "method": "POST",
+                    "url": "/services/data/v60.0/sobjects/ContentVersion",
+                    "referenceId": ref_id,
+                    "body": {
+                        "Title": attachment.name,
+                        "PathOnClient": attachment.name,
+                        "VersionData": attachment.datas.decode('utf-8'),
+                    }
+                })
+                attachment_ref_map[ref_id] = idx
+
+            # Paso 2: Crear FeedItem tipo ContentPost (Uso de Composite)
+            composite_request.append({
+                "method": "POST",
+                "url": "/services/data/v60.0/sobjects/FeedItem",
+                "referenceId": "FeedPost",
+                "body": {
+                    "ParentId": record_id,
+                    "Body": html2plaintext(record.body) or "",
+                    "Type": "ContentPost"
+                }
+            })
+
+            # Paso 3: Enviar Composite Request para crear los ContentVersions y el FeedItem
+            payload = {"allOrNone": True, "compositeRequest": composite_request}
+            response = requests.post(f"{base_url}/composite", headers=headers, json=payload)
+
+            if response.status_code != 200:
+                _logger.error(f"❌ Error al crear ContentVersion y FeedItem: {response.text}")
                 return
 
-        _logger.info("✅ Mensaje y archivos sincronizados correctamente con Salesforce.")
+            composite_response = response.json()
+            _logger.info(f"Composite Response: {json.dumps(composite_response, indent=2)}")
+            feed_item_id = next(
+                item['body']['id'] for item in composite_response['compositeResponse']
+                if item['referenceId'] == "FeedPost"
+            )
+            _logger.info(f"✅ FeedItem creado correctamente con ID: {feed_item_id}")
+
+            # Paso 4: Obtener ContentDocumentId de todos los Attachments mediante una única consulta REST
+            content_version_ids = [
+                item['body']['id'] for item in composite_response['compositeResponse']
+                if item['referenceId'].startswith("Attachment_")
+            ]
+            query = "SELECT+Id,ContentDocumentId+FROM+ContentVersion+WHERE+Id+IN+('{}')".format("','".join(content_version_ids))
+            _logger.error(f"❌ query: {query}")
+            response_query = requests.get(f"{salesforce_backend.url}/services/data/v60.0/query/?q={query}", headers=headers)
+            _logger.info(f"GET response: {response_query}")
+            if response_query.status_code != 200:
+                _logger.error(f"❌ Error al obtener ContentDocumentId: {response_query.text}")
+                return
+
+            records = response_query.json()['records']
+            content_document_map = {record['Id']: record['ContentDocumentId'] for record in records}
+
+            # Paso 5: Crear FeedAttachment (Uso de Composite para todos los adjuntos)
+            composite_link_request = []
+            for ref_id, idx in attachment_ref_map.items():
+                content_version_id = composite_response['compositeResponse'][idx]['body']['id']
+                content_document_id = content_document_map.get(content_version_id)
+
+                if content_version_id:
+                    composite_link_request.append({
+                        "method": "POST",
+                        "url": "/services/data/v60.0/sobjects/FeedAttachment",
+                        "referenceId": f"AttachFeed_{idx}",
+                        "body": {
+                            "Type": "Content",
+                            "FeedEntityId": feed_item_id,
+                            "RecordId": content_version_id
+                        }
+                    })
+                else:
+                    _logger.error(f"❌ No se encontró ContentVersionId para el Attachment {ref_id}")
+
+                if content_document_id:
+                    composite_link_request.append({
+                        "method": "POST",
+                        "url": "/services/data/v60.0/sobjects/ContentDocumentLink",
+                        "referenceId": f"LinkEntity_{idx}",
+                        "body": {
+                            "ContentDocumentId": content_document_id,
+                            "LinkedEntityId": record_id,
+                            "ShareType": "V"
+                        }
+                    })
+                else:
+                    _logger.error(f"❌ No se encontró ContentDocumentId para el Attachment {ref_id}")
+
+            # Enviar el composite para crear los FeedAttachments y ContentDocumentLinks
+            if composite_link_request:
+                payload = {"allOrNone": True, "compositeRequest": composite_link_request}
+                response_link = requests.post(f"{base_url}/composite", headers=headers, json=payload)
+                if response_link.status_code == 200:
+                    record.with_context(skip_sync=True).write({'sf_id': record_id})
+                    _logger.info(f"✅ FeedAttachments y ContentDocumentLinks creados correctamente.")
+                    _logger.error(f"✅ FeedAttachments : {response_link.text}")
+                else:
+                    _logger.error(f"❌ Error al crear FeedAttachments y ContentDocumentLinks: {response_link.text}")
+                    return
+
+            _logger.info("✅ Mensaje y archivos sincronizados correctamente con Salesforce.")
+
+
 
     @skip_if(lambda self, record, fields: not record or not fields)
     def on_mail_message_update(self, record, fields=None):
