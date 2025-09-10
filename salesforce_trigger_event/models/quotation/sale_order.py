@@ -161,7 +161,7 @@ class SaleOrder(models.Model):
         # Validar que todos los productos de las líneas tengan SF_ID y Pricebook configurados
         # Filtrar líneas con productos que no tienen sf_id o pricebook_sf_id
         missing_products = self.order_line.filtered(
-            lambda line: not line.product_id.product_tmpl_id.sf_id or not line.product_id.product_tmpl_id.pricebook_sf_id
+            lambda line: not line.product_id.product_tmpl_id.sf_id or not line.product_id.product_tmpl_id.sf_pricebook_entry_id
         )
         if missing_products:
             product_templates = missing_products.mapped('product_id.product_tmpl_id')
