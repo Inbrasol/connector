@@ -173,6 +173,26 @@ class CrmLead(models.Model):
         
         return self
 
+    def action_send_to_salesforce(self):
+        # Obtener líneas de productos de la oportunidad que no tienen sf_id o su producto no tiene sf_id
+        missing_products = self.lead_product_ids.filtered(
+            lambda line: not line.product_id.sf_id or not line.product_id.product_tmpl_id.sf_id
+        )
+        if missing_products:
+            product_templates = missing_products.mapped('product_id.product_tmpl_id')
+            related_model = self.env['product.template']
+            related_model._event('on_product_template_create_bulk').notify(product_templates, related_model._fields)
+
+        # Si la oportunidad ya tiene sf_id y hay líneas sin sf_id, crear esas líneas en Salesforce
+        if self.sf_id not in [False, None, ''] and any(not line.sf_id for line in self.lead_product_ids):
+            self.create_lines_to_sf()
+            return self
+
+        # Si la oportunidad no tiene sf_id, notificar evento de creación
+        if self.sf_id in [False, None, '']:
+            fields = self._fields.keys()
+            self._event('on_crm_lead_create').notify(self, fields=fields)
+            return self
 
 class CrmLeadEventListener(Component):
     _name = 'crm.lead.listener'

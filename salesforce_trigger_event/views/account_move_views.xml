@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="l10n_pe_edi_account_move" model="ir.ui.view">
+        <field name="name">l10n_pe_edi_account.move.inherit</field>
+        <field name="model">account.move</field>
+        <field name="inherit_id" ref="account.view_move_form" />
+        <field name="type">form</field>
+        <field name="arch" type="xml">
+            <header>
+                <button name="action_send_to_salesforce"
+                    type="object"
+                    string="Send to Salesforce"
+                    class="btn-primary"
+                    icon="fa-cloud-upload"
+                    help="Enviar esta factura a Salesforce" />
+            </header>
+        </field>
+    </record>
+</odoo>

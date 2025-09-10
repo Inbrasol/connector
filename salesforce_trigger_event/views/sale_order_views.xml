@@ -1,0 +1,18 @@
+<odoo>
+    <record id="sale_order_view_form_inherit_salesforce" model="ir.ui.view">
+        <field name="name">sale.order.form.inherit.salesforce</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form" />
+        <field name="arch" type="xml">
+            <header>
+                <button name="action_send_to_salesforce"
+                    type="object"
+                    string="Send to Salesforce"
+                    class="btn-primary"
+                    icon="fa-cloud-upload"
+                    help="Enviar este pedido a Salesforce" />
+            </header>
+        </field>
+    </record>
+
+</odoo>

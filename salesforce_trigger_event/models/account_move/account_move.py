@@ -148,6 +148,27 @@ class AccountMove(models.Model):
         
         return self
 
+    def action_send_to_salesforce(self):
+        # Obtener líneas de factura que no tienen sf_id o su producto no tiene sf_id
+        missing_products = self.line_ids.filtered(
+            lambda line: not line.product_id.sf_id or not line.product_id.product_tmpl_id.sf_id
+        )
+        if missing_products:
+            product_templates = missing_products.mapped('product_id.product_tmpl_id')
+            related_model = self.env['product.template']
+            related_model._event('on_product_template_create_bulk').notify(product_templates, related_model._fields)
+
+        # Si la factura ya tiene sf_id y hay líneas sin sf_id, crear esas líneas en Salesforce
+        if self.sf_id not in [False, None, ''] and any(not line.sf_id for line in self.line_ids):
+            self.create_lines_to_sf()
+            return self
+
+        # Si la factura no tiene sf_id, notificar evento de creación
+        if self.sf_id in [False, None, '']:
+            fields = self._fields.keys()
+            self._event('on_account_move_create').notify(self, fields=fields)
+            return self
+        
 class AccountMoveListener(Component):
     _name = 'account.move.listener'
     _inherit = 'base.event.listener'

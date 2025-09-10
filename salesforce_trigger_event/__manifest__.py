@@ -13,6 +13,9 @@
         'views/salesforce_backend_views.xml',
         'views/salesforce_rest_config_views.xml',
         'views/salesforce_rest_log_views.xml',
+        'views/account_move_views.xml',
+        'views/sale_order_views.xml',
+        'views/crm_lead_views.xml'
     ],
     'installable': True,
     'application': False,

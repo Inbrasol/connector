@@ -140,7 +140,6 @@ class SaleOrder(models.Model):
             self._event('on_sale_order_delete').notify(sf_ids)
             return super(SaleOrder, self).unlink()
     
-    
     def _process_lines(self, vals):
         sale_order_lines_update_ids = []
         related_model = self.env['sale.order.line']
@@ -157,6 +156,31 @@ class SaleOrder(models.Model):
         
         return self
     
+    def action_send_to_salesforce(self):
+        # Obtener líneas que no tienen sf_id o pricebook_sf_id
+        # Validar que todos los productos de las líneas tengan SF_ID y Pricebook configurados
+        # Filtrar líneas con productos que no tienen sf_id o pricebook_sf_id
+        missing_products = self.order_line.filtered(
+            lambda line: not line.product_id.product_tmpl_id.sf_id or not line.product_id.product_tmpl_id.pricebook_sf_id
+        )
+        if missing_products:
+            product_templates = missing_products.mapped('product_id.product_tmpl_id')
+            related_model = self.env['product.template']
+            related_model._event('on_product_template_create_bulk').notify(product_templates, related_model._fields)
+
+        # Si la orden ya tiene sf_id y hay líneas sin sf_id, crear esas líneas en Salesforce
+        if self.sf_id not in [False, None, ''] and any(not line.sf_id for line in self.order_line):
+            self.create_lines_to_sf()
+            return self
+
+        # Si la orden no tiene sf_id, notificar evento de creación
+        if self.sf_id in [False, None, '']:
+            fields = self._fields.keys()
+            self._event('on_sale_order_create').notify(self, fields=fields)
+            return self
+        
+
+
 class SaleOrderListener(Component):
     _name = 'sale.order.listener'
     _inherit = 'base.event.listener'
