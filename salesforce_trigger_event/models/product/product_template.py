@@ -56,8 +56,8 @@ class ProductTemplate(models.Model):
         context_with_skip_sync = dict(self.env.context, skip_sync=True)
         related_model = self.env['product.template']
         lines_update = related_model.search([
-            ('sf_id', '!=', False),
-            ('sf_pricebook_id', '=', False),
+            ('sf_id', '!=', ''),
+            ('sf_pricebook_id', '=', ''),
             ('sale_ok', '=', True),
             ('type', 'in', ('consu', 'product')),
             ('active', '=', True),
@@ -104,6 +104,68 @@ class ProductTemplate(models.Model):
 
         return self
     
+    @api.model
+    def sync_lines_to_sf_by_cron(self):
+        _logger.error("cron: %s", self)
+        related_model = self.env['product.template']
+        fields = related_model._fields.keys()
+        # Buscar productos que aún no tienen sf_id pero cumplen condiciones
+        lines_to_sync = related_model.search([
+            '|',
+            ('sf_id', '=', False),
+            ('sf_id', '=', ''), 
+            ('sale_ok', '=', True),
+            ('type', 'in', ('consu', 'product')),
+            ('active', '=', True),
+        ], limit=201)
+        
+        _logger.error("product_lines to sync: %s", lines_to_sync)
+        
+        if not lines_to_sync:
+            return self
+
+        # Limitar a 200 registros por lote
+        lines = lines_to_sync[:200]
+        odoo_ids = [str(l.id) for l in lines]
+        if not odoo_ids:
+            return self
+
+        # Consultar en Salesforce por Odoo_Id__c
+        query = "SELECT+Id,Pricebook2Id,Product2Id,Product2.Odoo_Id__c,UnitPrice,IsActive+FROM+PriceBookEntry+WHERE+Product2.Odoo_Id__c+IN+('{}')".format("','".join(odoo_ids))
+        request_pricebook_entry = self.env['salesforce.rest.config'].build_request(query, None, 'query', 'product_template_pricebook_entry_query')
+        
+        _logger.error(f"GET request url: {request_pricebook_entry}")
+        response = requests.get(request_pricebook_entry['url'], headers=request_pricebook_entry['headers'])
+        _logger.error(f"GET response: {response}")
+        _logger.error(f"GET response: {response.text}")
+        
+        context_with_skip_sync = dict(self.env.context, skip_sync=True)
+        updates = []
+
+        if response.status_code == 200:
+            records = response.json().get('records', [])
+            for record in records:
+                odoo_id = int(record['Product2']['Odoo_Id__c'])
+                updates.append((odoo_id, {
+                    'sf_id': record['Product2Id'],
+                    'sf_pricebook_id': record['Pricebook2Id'],
+                    'sf_pricebook_entry_id': record['Id'],
+                    'sf_integration_status': 'success',
+                    'sf_integration_datetime': datetime.now()
+                }))
+        
+        # Actualizar los registros en Odoo
+        for odoo_id, vals in updates:
+            related_model.browse(odoo_id).with_context(context_with_skip_sync).write(vals)
+
+        # Si hay más de 200, reprogramar el cron
+        if len(lines_to_sync) > 200:
+            cron_job = self.env.ref('salesforce_trigger_event.ir_cron_sync_product_template_to_sf')
+            next_call_time = (datetime.now() + timedelta(minutes=2)).strftime('%Y-%m-%d %H:%M:%S')
+            cron_job.write({'nextcall': next_call_time})
+
+        return self
+
     """
     def create(self, vals):
         if self.env.context.get('skip_sync'):

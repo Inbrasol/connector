@@ -128,5 +128,17 @@
             <field name="active" eval="False"/>
         </record>
 
+        <record id="ir_cron_sync_product_template_to_sf" model="ir.cron">
+            <field name="name">Sync Product Template Salesforce</field>
+            <field name="model_id" ref="model_product_template"/>
+            <field name="state">code</field>
+            <field name="code">model.sync_lines_to_sf_by_cron()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">hours</field>
+            <field name="numbercall">-1</field>
+            <field name="doall" eval="False"/>
+            <field name="active" eval="False"/>
+        </record>
+
     </data>
 </odoo>
