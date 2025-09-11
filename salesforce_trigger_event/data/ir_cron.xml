@@ -53,6 +53,18 @@
             <field name="active" eval="False"/>
         </record>
 
+        <record id="ir_cron_sync_crm_lead_product_to_sf" model="ir.cron">
+            <field name="name">Sync OLIs Salesforce</field>
+            <field name="model_id" ref="model_crm_lead_product"/>
+            <field name="state">code</field>
+            <field name="code">model.sync_lines_to_sf_by_cron()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">hours</field>
+            <field name="numbercall">-1</field>
+            <field name="doall" eval="False"/>
+            <field name="active" eval="False"/>
+        </record>
+
         <!-- Cron job to create Sale Order in Salesforce -->
         <record id="ir_cron_create_sale_order_to_sf" model="ir.cron">
             <field name="name">Crear Sale Order Salesforce</field>
@@ -71,6 +83,18 @@
             <field name="model_id" ref="model_sale_order_line"/>
             <field name="state">code</field>
             <field name="code">model.create_lines_to_sf_by_cron()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">hours</field>
+            <field name="numbercall">-1</field>
+            <field name="doall" eval="False"/>
+            <field name="active" eval="False"/>
+        </record>
+        
+        <record id="ir_cron_sync_sale_order_line_to_sf" model="ir.cron">
+            <field name="name">Sync Sale Order Line Salesforce</field>
+            <field name="model_id" ref="model_sale_order_line"/>
+            <field name="state">code</field>
+            <field name="code">model.sync_lines_to_sf_by_cron()</field>
             <field name="interval_number">1</field>
             <field name="interval_type">hours</field>
             <field name="numbercall">-1</field>

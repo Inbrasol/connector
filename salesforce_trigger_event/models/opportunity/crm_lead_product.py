@@ -44,6 +44,65 @@ class CrmLeadProduct(models.Model):
             cron_job.write({'nextcall': next_call_time})
 
         return self
+    
+    @api.model
+    def sync_lines_to_sf_by_cron(self):
+        _logger.error("cron: %s", self)
+        related_model = self.env['crm.lead.product']
+        # Buscar líneas que aún no tienen sf_id pero cumplen condiciones
+        lines_to_sync = related_model.search([
+            '|',
+            ('sf_id', '=', False),
+            ('sf_id', '=', ''), 
+            ('lead_id.sf_id', '!=', False)
+        ], limit=201)
+        
+        _logger.error("opportunity lines to sync: %s", lines_to_sync)
+        
+        if not lines_to_sync:
+            return self
+
+        # Limitar a 200 registros por lote
+        lines = lines_to_sync[:200]
+        odoo_ids = [str(l.id) for l in lines]
+        if not odoo_ids:
+            return self
+
+        # Consultar en Salesforce por Odoo_Id__c
+        query = (
+            "SELECT+Id,Odoo_Id__c+"
+            "FROM+OpportunityLineItem+WHERE+Odoo_Id__c+IN+('{}')"
+        ).format("','".join(odoo_ids))
+        request_oli = self.env['salesforce.rest.config'].build_request(query, None, 'query', 'opportunity_line_item_query')
+        
+        _logger.error(f"GET request url: {request_oli}")
+        response = requests.get(request_oli['url'], headers=request_oli['headers'])
+        _logger.error(f"GET response: {response}")
+        _logger.error(f"GET response: {response.text}")
+        
+        context_with_skip_sync = dict(self.env.context, skip_sync=True)
+        updates = []
+
+        if response.status_code == 200:
+            records = response.json().get('records', [])
+            for record in records:
+                odoo_id = int(record['Odoo_Id__c'])
+                updates.append((odoo_id, {
+                    'sf_id': record['Id'],
+                }))
+        
+        # Actualizar solo el campo sf_id en Odoo
+        for odoo_id, vals in updates:
+            related_model.browse(odoo_id).with_context(context_with_skip_sync).write(vals)
+
+        # Si hay más de 200, reprogramar el cron
+        if len(lines_to_sync) > 200:
+            cron_job = self.env.ref('salesforce_trigger_event.ir_cron_sync_crm_lead_product_to_sf')
+            next_call_time = (datetime.now() + timedelta(minutes=2)).strftime('%Y-%m-%d %H:%M:%S')
+            cron_job.write({'nextcall': next_call_time})
+
+        return self
+
         
     """
     @api.model
